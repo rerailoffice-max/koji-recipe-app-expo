@@ -224,102 +224,73 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const runId = `email-login-${Date.now()}`;
-      const supabaseHost = (() => {
-        try {
-          return new URL(SUPABASE_URL).host;
-        } catch {
-          return null;
-        }
-      })();
-
-      // #region agent log
-      fetch(LOG_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId,
-          hypothesisId: 'H_email_login',
-          location: 'app/login.tsx:handleEmailSubmit',
-          message: 'signInWithPassword start',
-          data: { emailLen: email.trim().length, hasPassword: password.length > 0, platform: Platform.OS, supabaseHost },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-
-      const probe = async (label: string, url: string) => {
-        try {
-          // #region agent log
-          console.log('[DBG] probe start', { runId, label, url });
-          // #endregion
-          const res = await fetch(url, { method: 'GET' });
-          // #region agent log
-          console.log('[DBG] probe ok', { runId, label, status: res.status, ok: res.ok });
-          // #endregion
-          return { label, ok: true, status: res.status };
-        } catch (e: any) {
-          // #region agent log
-          console.log('[DBG] probe failed', { runId, label, message: e?.message ?? String(e) });
-          // #endregion
-          return { label, ok: false as const, message: e?.message ?? String(e) };
-        }
-      };
-
-      // 疎通チェック（Supabase以外も含めて比較）
-      const probeResults = await Promise.all([
-        probe('supabase_health', `${SUPABASE_URL}/auth/v1/health`),
-        probe('supabase_root', `${SUPABASE_URL}/`),
-        probe('vercel_app', 'https://koji-recipe-app-c72x.vercel.app'),
-        probe('google_204', 'https://www.google.com/generate_204'),
-      ]);
-
-      // #region agent log
-      console.log('[DBG] probe summary', { runId, probeResults });
-      // #endregion
-
       const trimmedEmail = email.trim();
-      const { error } = isSignup
-        ? await supabase.auth.signUp({ email: trimmedEmail, password })
-        : await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
 
       // #region agent log
-      fetch(LOG_URL, {
+      console.log('[DBG] email auth via proxy', { runId, mode: isSignup ? 'signup' : 'login', emailLen: trimmedEmail.length });
+      // #endregion
+
+      // Vercel API経由でSupabaseに認証（Supabase直接接続を回避）
+      const endpoint = isSignup
+        ? `${API_BASE_URL}/api/auth/email-signup`
+        : `${API_BASE_URL}/api/auth/email-login`;
+
+      // #region agent log
+      console.log('[DBG] calling proxy API', { runId, endpoint });
+      // #endregion
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId,
-          hypothesisId: 'H_email_login',
-          location: 'app/login.tsx:handleEmailSubmit',
-          message: isSignup ? 'signUp result' : 'signInWithPassword result',
-          data: { ok: !error, error: error?.message ?? null },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
+        body: JSON.stringify({ email: trimmedEmail, password }),
+      });
+
+      const json = await res.json();
 
       // #region agent log
-      console.log('[DBG] auth result', { mode: isSignup ? 'signup' : 'login', ok: !error, error: error?.message ?? null });
+      console.log('[DBG] proxy API response', { runId, ok: json.success, status: res.status, hasSession: !!json.session });
       // #endregion
 
-      if (error) {
-        if (!isSignup && error.message.includes('Invalid login credentials')) {
-          setErrorText('メールアドレスまたはパスワードが正しくありません。');
-        } else if (isSignup && error.message.toLowerCase().includes('already')) {
-          setErrorText('このメールアドレスは既に登録されています。');
-        } else {
-          setErrorText(error.message);
+      if (!json.success) {
+        setErrorText(json.error || '認証に失敗しました。');
+        return;
+      }
+
+      // 新規登録で確認メール送信が必要な場合
+      if (isSignup && json.needsEmailConfirmation) {
+        setErrorText(json.message || '確認メールを送信しました。メールのリンクを開いてからログインしてください。');
+        return;
+      }
+
+      // セッションをSupabase clientにセット
+      if (json.session?.access_token && json.session?.refresh_token) {
+        // #region agent log
+        console.log('[DBG] setting session to supabase client', { runId });
+        // #endregion
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: json.session.access_token,
+          refresh_token: json.session.refresh_token,
+        });
+
+        if (sessionError) {
+          // #region agent log
+          console.log('[DBG] setSession error', { runId, error: sessionError.message });
+          // #endregion
+          setErrorText('セッションの設定に失敗しました。');
+          return;
         }
-        return;
       }
-      if (isSignup) {
-        setErrorText('確認メールを送信しました。メールのリンクを開いてからログインしてください。');
-        return;
-      }
+
+      // #region agent log
+      console.log('[DBG] auth success, navigating to tabs', { runId });
+      // #endregion
+
       router.replace('/(tabs)');
     } catch (e: any) {
-      // ここで落ちる場合は通信断が濃厚
+      // #region agent log
+      console.log('[DBG] proxy auth error', { error: e?.message ?? String(e) });
+      // #endregion
       setErrorText(e?.message ? `通信に失敗しました: ${e.message}` : '通信に失敗しました。');
     } finally {
       setIsLoading(false);

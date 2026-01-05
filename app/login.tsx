@@ -245,10 +245,29 @@ export default function LoginScreen() {
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
 
-      const json = await res.json();
+      // #region agent log
+      console.log('[DBG] proxy API raw response', { runId, status: res.status, statusText: res.statusText, ok: res.ok });
+      // #endregion
+
+      const text = await res.text();
 
       // #region agent log
-      console.log('[DBG] proxy API response', { runId, ok: json.success, status: res.status, hasSession: !!json.session });
+      console.log('[DBG] proxy API response text', { runId, textLength: text.length, textPreview: text.substring(0, 200) });
+      // #endregion
+
+      let json: any;
+      try {
+        json = JSON.parse(text);
+      } catch (parseErr: any) {
+        // #region agent log
+        console.log('[DBG] JSON parse failed', { runId, parseError: parseErr?.message, text: text.substring(0, 500) });
+        // #endregion
+        setErrorText('サーバーからの応答が正しくありません。');
+        return;
+      }
+
+      // #region agent log
+      console.log('[DBG] proxy API response parsed', { runId, ok: json.success, status: res.status, hasSession: !!json.session });
       // #endregion
 
       if (!json.success) {

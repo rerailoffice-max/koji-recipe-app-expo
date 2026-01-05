@@ -4,13 +4,13 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Image,
   ActivityIndicator,
   Platform,
   Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, API_BASE_URL } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
@@ -19,13 +19,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 
 // WebBrowserのセッションを完了させる（iOS/Android）
 WebBrowser.maybeCompleteAuthSession();
-
-// 特徴アイコンのデータ
-const FEATURES = [
-  { id: 'fermented', icon: 'leaf', label: '発酵食品' },
-  { id: 'ai', icon: 'sparkles', label: 'AI制作' },
-  { id: 'safety', icon: 'shield', label: '安全管理' },
-];
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -36,13 +29,18 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
 
+  // Expo用のリダイレクトURL
+  const redirectUrl = AuthSession.makeRedirectUri({
+    scheme: 'kojirecipeappexpo',
+    path: 'auth/callback',
+  });
+
   // 既存セッションをチェック
   React.useEffect(() => {
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // 既にログイン済みならホームへ
           router.replace('/(tabs)');
         }
       } catch (e) {
@@ -70,26 +68,61 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      // Web環境ではOAuth URLにリダイレクト
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: Platform.select({
-            web: typeof window !== 'undefined' ? window.location.origin : undefined,
-            default: 'kojirecipeappexpo://auth/callback',
-          }),
-        },
-      });
+      if (Platform.OS === 'web') {
+        // Web: 直接OAuth
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          },
+        });
 
-      if (error) {
-        console.error('Google login error:', error);
-        alert('ログインに失敗しました。もう一度お試しください。');
-        return;
-      }
+        if (error) throw error;
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } else {
+        // Native (Expo Go): WebBrowserでOAuthを開く
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true,
+          },
+        });
 
-      // Web環境ではリダイレクトが自動で行われる
-      if (Platform.OS === 'web' && data.url) {
-        window.location.href = data.url;
+        if (error) throw error;
+
+        if (data.url) {
+          // WebBrowserで認証ページを開く
+          const result = await WebBrowser.openAuthSessionAsync(
+            data.url,
+            redirectUrl,
+            {
+              showInRecents: true,
+              preferEphemeralSession: false,
+            }
+          );
+
+          if (result.type === 'success' && result.url) {
+            // URLからトークンを抽出
+            const url = new URL(result.url);
+            const params = new URLSearchParams(url.hash.substring(1));
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken && refreshToken) {
+              // セッションを設定
+              const { error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+
+              if (sessionError) throw sessionError;
+              // onAuthStateChange が発火してリダイレクトされる
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('Google login error:', e);
@@ -99,9 +132,16 @@ export default function LoginScreen() {
     }
   };
 
-  // ゲストとして続行
-  const handleGuestContinue = () => {
-    router.replace('/(tabs)');
+  // メールログイン（将来実装）
+  const handleEmailLogin = () => {
+    // TODO: メールログイン画面へ遷移
+    alert('メールログインは現在準備中です。Googleでログインしてください。');
+  };
+
+  // 新規登録（将来実装）
+  const handleSignup = () => {
+    // TODO: 新規登録画面へ遷移
+    alert('新規登録は現在準備中です。Googleでログインしてください。');
   };
 
   // リンクを開く
@@ -134,7 +174,7 @@ export default function LoginScreen() {
       {/* ロゴ・タイトル */}
       <View style={styles.header}>
         <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
-          <IconSymbol name="leaf" size={40} color={colors.primaryForeground} />
+          <IconSymbol name="leaf" size={48} color={colors.primaryForeground} />
         </View>
         <Text style={[styles.title, { color: colors.text }]}>GOCHISOKOJI</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -144,33 +184,60 @@ export default function LoginScreen() {
 
       {/* 特徴アイコン */}
       <View style={styles.features}>
-        {FEATURES.map((feature) => (
-          <View key={feature.id} style={styles.featureItem}>
-            <View
-              style={[
-                styles.featureIconContainer,
-                {
-                  backgroundColor: `${colors.primary}20`,
-                  borderColor: `${colors.primary}40`,
-                },
-              ]}
-            >
-              <IconSymbol name={feature.icon as any} size={20} color={colors.primary} />
-            </View>
-            <Text style={[styles.featureLabel, { color: colors.text }]}>
-              {feature.label}
-            </Text>
+        <View style={styles.featureItem}>
+          <View
+            style={[
+              styles.featureIconContainer,
+              {
+                backgroundColor: `${colors.primary}15`,
+                borderColor: `${colors.primary}25`,
+              },
+            ]}
+          >
+            <IconSymbol name="leaf" size={24} color={colors.primary} />
           </View>
-        ))}
+          <Text style={[styles.featureLabel, { color: colors.text }]}>発酵食品</Text>
+        </View>
+
+        <View style={styles.featureItem}>
+          <View
+            style={[
+              styles.featureIconContainer,
+              {
+                backgroundColor: `${colors.primary}20`,
+                borderColor: `${colors.primary}30`,
+              },
+            ]}
+          >
+            <IconSymbol name="sparkles" size={24} color={colors.primary} />
+          </View>
+          <Text style={[styles.featureLabel, { color: colors.text }]}>AI制作</Text>
+        </View>
+
+        <View style={styles.featureItem}>
+          <View
+            style={[
+              styles.featureIconContainer,
+              {
+                backgroundColor: `${colors.primary}25`,
+                borderColor: `${colors.primary}35`,
+              },
+            ]}
+          >
+            <IconSymbol name="shield" size={24} color={colors.primary} />
+          </View>
+          <Text style={[styles.featureLabel, { color: colors.text }]}>安全管理</Text>
+        </View>
       </View>
 
       {/* ログインボタン */}
       <View style={styles.buttons}>
+        {/* Googleログイン */}
         <Pressable
           onPress={handleGoogleLogin}
           disabled={isLoading}
           style={({ pressed }) => [
-            styles.googleButton,
+            styles.primaryButton,
             {
               backgroundColor: colors.primary,
               opacity: pressed || isLoading ? 0.8 : 1,
@@ -181,8 +248,8 @@ export default function LoginScreen() {
             <ActivityIndicator size="small" color={colors.primaryForeground} />
           ) : (
             <>
-              <GoogleIcon color={colors.primaryForeground} />
-              <Text style={[styles.googleButtonText, { color: colors.primaryForeground }]}>
+              <GoogleIcon />
+              <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>
                 Googleで続ける
               </Text>
             </>
@@ -198,21 +265,32 @@ export default function LoginScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
+        {/* メールログイン */}
         <Pressable
-          onPress={handleGuestContinue}
+          onPress={handleEmailLogin}
           style={({ pressed }) => [
-            styles.guestButton,
+            styles.secondaryButton,
             {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              opacity: pressed ? 0.7 : 1,
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.8 : 1,
             },
           ]}
         >
-          <Text style={[styles.guestButtonText, { color: colors.text }]}>
-            ログインせずに使う
+          <IconSymbol name="envelope" size={20} color={colors.primaryForeground} />
+          <Text style={[styles.secondaryButtonText, { color: colors.primaryForeground }]}>
+            メールアドレスでログイン
           </Text>
         </Pressable>
+
+        {/* 新規登録リンク */}
+        <View style={styles.signupRow}>
+          <Text style={[styles.signupText, { color: colors.mutedForeground }]}>
+            アカウントをお持ちでない方は{' '}
+          </Text>
+          <Pressable onPress={handleSignup}>
+            <Text style={[styles.signupLink, { color: colors.primary }]}>新規登録</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* 法的リンク */}
@@ -226,7 +304,7 @@ export default function LoginScreen() {
           <Text style={{ color: colors.primary }} onPress={() => openLink('/privacy')}>
             プライバシーポリシー
           </Text>
-          に同意したものとみなされます。
+          に{'\n'}同意したものとみなされます。
         </Text>
       </View>
 
@@ -238,15 +316,15 @@ export default function LoginScreen() {
         style={[
           styles.valueProposition,
           {
-            backgroundColor: `${colors.primary}15`,
-            borderColor: `${colors.primary}30`,
+            backgroundColor: `${colors.primary}10`,
+            borderColor: `${colors.primary}20`,
           },
         ]}
       >
         <View
           style={[
             styles.valueIcon,
-            { backgroundColor: `${colors.primary}25` },
+            { backgroundColor: `${colors.primary}20` },
           ]}
         >
           <IconSymbol name="thermometer" size={16} color={colors.primary} />
@@ -259,18 +337,18 @@ export default function LoginScreen() {
       {/* フッター */}
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-          © 2025 GOCHISOKOJI. All rights reserved.
+          © 2024 GOCHISOKOJI. All rights reserved.
         </Text>
       </View>
     </View>
   );
 }
 
-// Googleアイコンコンポーネント
-function GoogleIcon({ color }: { color: string }) {
+// Googleアイコン（SVG風）
+function GoogleIcon() {
   return (
     <View style={styles.googleIconContainer}>
-      <Text style={{ color, fontSize: 18, fontWeight: '700' }}>G</Text>
+      <Text style={styles.googleIconText}>G</Text>
     </View>
   );
 }
@@ -288,26 +366,28 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
     borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
-    ...Shadows.md,
+    ...Shadows.lg,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
+    letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 17,
+    letterSpacing: 2,
   },
   features: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: Spacing.lg,
+    gap: Spacing.xl,
     marginBottom: Spacing.xl,
   },
   featureItem: {
@@ -315,9 +395,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   featureIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -330,7 +410,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.md,
   },
-  googleButton: {
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -339,15 +419,22 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     ...Shadows.lg,
   },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   googleIconContainer: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  googleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  googleIconText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4285F4',
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -360,28 +447,41 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontSize: 12,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
   },
-  guestButton: {
+  secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    height: 52,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
+    gap: Spacing.sm,
   },
-  guestButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  signupRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: Spacing.xs,
+  },
+  signupText: {
+    fontSize: 14,
+  },
+  signupLink: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   legal: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     marginBottom: Spacing.lg,
   },
   legalText: {
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   valueProposition: {
     flexDirection: 'row',
@@ -390,7 +490,7 @@ const styles = StyleSheet.create({
     padding: Spacing.sm + 4,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   valueIcon: {
     width: 32,

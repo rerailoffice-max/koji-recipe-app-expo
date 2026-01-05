@@ -67,6 +67,11 @@ export default function LoginScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
+    // #region agent log - H3: リダイレクトURL確認
+    console.log('[DEBUG H3] redirectUrl:', redirectUrl);
+    console.log('[DEBUG H3] Platform.OS:', Platform.OS);
+    // #endregion
+
     try {
       if (Platform.OS === 'web') {
         // Web: 直接OAuth
@@ -77,12 +82,21 @@ export default function LoginScreen() {
           },
         });
 
+        // #region agent log - H2: OAuth URL確認 (Web)
+        console.log('[DEBUG H2 Web] data:', JSON.stringify(data));
+        console.log('[DEBUG H2 Web] error:', error);
+        // #endregion
+
         if (error) throw error;
         if (data.url) {
           window.location.href = data.url;
         }
       } else {
         // Native (Expo Go): WebBrowserでOAuthを開く
+        // #region agent log - H2: OAuth呼び出し前
+        console.log('[DEBUG H2 Native] Calling signInWithOAuth with redirectUrl:', redirectUrl);
+        // #endregion
+
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -91,9 +105,23 @@ export default function LoginScreen() {
           },
         });
 
-        if (error) throw error;
+        // #region agent log - H2: OAuth結果確認
+        console.log('[DEBUG H2 Native] OAuth data.url:', data?.url);
+        console.log('[DEBUG H2 Native] OAuth error:', error?.message);
+        // #endregion
+
+        if (error) {
+          // #region agent log - H2: OAuthエラー詳細
+          alert(`[DEBUG] OAuth Error: ${error.message}`);
+          // #endregion
+          throw error;
+        }
 
         if (data.url) {
+          // #region agent log - H4: WebBrowser呼び出し前
+          console.log('[DEBUG H4] Opening WebBrowser with URL:', data.url.substring(0, 100) + '...');
+          // #endregion
+
           // WebBrowserで認証ページを開く
           const result = await WebBrowser.openAuthSessionAsync(
             data.url,
@@ -104,12 +132,24 @@ export default function LoginScreen() {
             }
           );
 
+          // #region agent log - H4: WebBrowser結果
+          console.log('[DEBUG H4] WebBrowser result type:', result.type);
+          if (result.type === 'success') {
+            console.log('[DEBUG H4] WebBrowser result url:', (result as any).url?.substring(0, 100));
+          }
+          // #endregion
+
           if (result.type === 'success' && result.url) {
             // URLからトークンを抽出
             const url = new URL(result.url);
             const params = new URLSearchParams(url.hash.substring(1));
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
+
+            // #region agent log - H4: トークン確認
+            console.log('[DEBUG H4] accessToken exists:', !!accessToken);
+            console.log('[DEBUG H4] refreshToken exists:', !!refreshToken);
+            // #endregion
 
             if (accessToken && refreshToken) {
               // セッションを設定
@@ -120,12 +160,26 @@ export default function LoginScreen() {
 
               if (sessionError) throw sessionError;
             }
+          } else if (result.type === 'cancel') {
+            // #region agent log - H4: キャンセル
+            console.log('[DEBUG H4] User cancelled auth');
+            // #endregion
+          } else if (result.type === 'dismiss') {
+            // #region agent log - H4: ディスミス
+            console.log('[DEBUG H4] Auth dismissed');
+            // #endregion
           }
+        } else {
+          // #region agent log - H2: URLなし
+          alert('[DEBUG] OAuth returned no URL');
+          // #endregion
         }
       }
-    } catch (e) {
-      console.error('Google login error:', e);
-      alert('ログインに失敗しました。もう一度お試しください。');
+    } catch (e: any) {
+      // #region agent log - H1/H5: エラー詳細
+      console.error('[DEBUG ERROR] Google login error:', e);
+      alert(`[DEBUG] Login Error: ${e?.message || String(e)}`);
+      // #endregion
     } finally {
       setIsLoading(false);
     }

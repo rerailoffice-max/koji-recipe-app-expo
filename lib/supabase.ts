@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 
 // 環境変数から取得（app.json の extra に設定するか、EAS Build時に設定）
 // 開発時は直接URLを指定（Next.js版と同じSupabaseプロジェクトを使用）
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://uuokdcubxmkfdfaibsvk.supabase.co';
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://uuokdcubxmkfdfaibsvk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1b2tkY3VieG1rZmRmYWlic3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwOTMzMzIsImV4cCI6MjA2NDY2OTMzMn0.A0JDrfyHM4RUFoMXDVl4xMqFa2rJNhw1hgbMLGIxELE';
 
 // SSR環境（window/localStorageがない）ではメモリストレージを使用

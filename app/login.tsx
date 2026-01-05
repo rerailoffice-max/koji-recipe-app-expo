@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase, API_BASE_URL } from '@/lib/supabase';
+import { supabase, API_BASE_URL, SUPABASE_URL } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -220,26 +220,90 @@ export default function LoginScreen() {
     }
     setIsLoading(true);
     try {
+      const runId = `email-login-${Date.now()}`;
+      const supabaseHost = (() => {
+        try {
+          return new URL(SUPABASE_URL).host;
+        } catch {
+          return null;
+        }
+      })();
+
       // #region agent log
       fetch(LOG_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: 'debug-session',
-          runId: `email-login-${Date.now()}`,
+          runId,
           hypothesisId: 'H_email_login',
           location: 'app/login.tsx:handleEmailSubmit',
           message: 'signInWithPassword start',
-          data: { emailLen: email.trim().length, hasPassword: password.length > 0 },
+          data: { emailLen: email.trim().length, hasPassword: password.length > 0, platform: Platform.OS, supabaseHost },
           timestamp: Date.now(),
         }),
       }).catch(() => {});
       // #endregion
 
+      // 疎通チェック（Supabaseに到達できるか）
+      try {
+        const probeUrl = `${SUPABASE_URL}/auth/v1/health`;
+        const res = await fetch(probeUrl, { method: 'GET' });
+
+        // #region agent log
+        fetch(LOG_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId,
+            hypothesisId: 'H_email_probe',
+            location: 'app/login.tsx:handleEmailSubmit',
+            message: 'supabase health probe',
+            data: { ok: res.ok, status: res.status },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+      } catch (e: any) {
+        // #region agent log
+        fetch(LOG_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId,
+            hypothesisId: 'H_email_probe',
+            location: 'app/login.tsx:handleEmailSubmit',
+            message: 'supabase health probe failed',
+            data: { message: e?.message ?? String(e) },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+
+      // #region agent log
+      fetch(LOG_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId,
+          hypothesisId: 'H_email_login',
+          location: 'app/login.tsx:handleEmailSubmit',
+          message: 'signInWithPassword result',
+          data: { ok: !error, error: error?.message ?? null },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+
       if (error) {
         setErrorText(error.message.includes('Invalid login credentials') ? 'メールアドレスまたはパスワードが正しくありません。' : error.message);
         return;

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -21,6 +22,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
+  const LOG_URL = 'http://127.0.0.1:7244/ingest/a2183a97-7691-4013-9b1b-c6f1b8ad2750';
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -28,6 +30,11 @@ export default function LoginScreen() {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
+  const [isEmailLogin, setIsEmailLogin] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [errorText, setErrorText] = React.useState('');
 
   // Expo用のリダイレクトURL
   const redirectUrl = AuthSession.makeRedirectUri({
@@ -66,6 +73,7 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     if (isLoading) return;
     setIsLoading(true);
+    setErrorText('');
 
     // #region agent log - H3: リダイレクトURL確認
     console.log('[DEBUG H3] redirectUrl:', redirectUrl);
@@ -78,7 +86,7 @@ export default function LoginScreen() {
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+            redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
           },
         });
 
@@ -112,7 +120,7 @@ export default function LoginScreen() {
 
         if (error) {
           // #region agent log - H2: OAuthエラー詳細
-          alert(`[DEBUG] OAuth Error: ${error.message}`);
+          setErrorText(`Googleログインに失敗しました: ${error.message}`);
           // #endregion
           throw error;
         }
@@ -120,6 +128,22 @@ export default function LoginScreen() {
         if (data.url) {
           // #region agent log - H4: WebBrowser呼び出し前
           console.log('[DEBUG H4] Opening WebBrowser with URL:', data.url.substring(0, 100) + '...');
+          // #endregion
+
+          // #region agent log
+          fetch(LOG_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: 'debug-session',
+              runId: `oauth-native-${Date.now()}`,
+              hypothesisId: 'H4_open',
+              location: 'app/login.tsx:handleGoogleLogin',
+              message: 'openAuthSessionAsync start',
+              data: { redirectUrl, urlHost: (() => { try { return new URL(data.url).host; } catch { return null; } })() },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
           // #endregion
 
           // WebBrowserで認証ページを開く
@@ -140,26 +164,8 @@ export default function LoginScreen() {
           // #endregion
 
           if (result.type === 'success' && result.url) {
-            // URLからトークンを抽出
-            const url = new URL(result.url);
-            const params = new URLSearchParams(url.hash.substring(1));
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-
-            // #region agent log - H4: トークン確認
-            console.log('[DEBUG H4] accessToken exists:', !!accessToken);
-            console.log('[DEBUG H4] refreshToken exists:', !!refreshToken);
-            // #endregion
-
-            if (accessToken && refreshToken) {
-              // セッションを設定
-              const { error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-
-              if (sessionError) throw sessionError;
-            }
+            // 成功したらアプリ内の /auth/callback へ委譲（code交換はそちらで）
+            router.replace('/auth/callback');
           } else if (result.type === 'cancel') {
             // #region agent log - H4: キャンセル
             console.log('[DEBUG H4] User cancelled auth');
@@ -171,23 +177,23 @@ export default function LoginScreen() {
           }
         } else {
           // #region agent log - H2: URLなし
-          alert('[DEBUG] OAuth returned no URL');
+          setErrorText('Googleログインの開始に失敗しました（URLが取得できません）');
           // #endregion
         }
       }
     } catch (e: any) {
       // #region agent log - H1/H5: エラー詳細
       console.error('[DEBUG ERROR] Google login error:', e);
-      alert(`[DEBUG] Login Error: ${e?.message || String(e)}`);
+      if (!errorText) setErrorText(e?.message ? `ログインに失敗しました: ${e.message}` : 'ログインに失敗しました');
       // #endregion
     } finally {
       setIsLoading(false);
     }
   };
 
-  // メールログイン（将来実装）
   const handleEmailLogin = () => {
-    alert('メールログインは現在準備中です。\nGoogleでログインするか、ログインせずにお使いください。');
+    setErrorText('');
+    setIsEmailLogin(true);
   };
 
   // 新規登録（将来実装）
@@ -203,6 +209,47 @@ export default function LoginScreen() {
   // リンクを開く
   const openLink = (path: string) => {
     Linking.openURL(`${API_BASE_URL}${path}`);
+  };
+
+  const handleEmailSubmit = async () => {
+    if (isLoading) return;
+    setErrorText('');
+    if (!email.trim() || !password) {
+      setErrorText('メールアドレスとパスワードを入力してください。');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      // #region agent log
+      fetch(LOG_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: `email-login-${Date.now()}`,
+          hypothesisId: 'H_email_login',
+          location: 'app/login.tsx:handleEmailSubmit',
+          message: 'signInWithPassword start',
+          data: { emailLen: email.trim().length, hasPassword: password.length > 0 },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) {
+        setErrorText(error.message.includes('Invalid login credentials') ? 'メールアドレスまたはパスワードが正しくありません。' : error.message);
+        return;
+      }
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setErrorText(e?.message ?? 'ログインに失敗しました。');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isCheckingSession) {
@@ -288,6 +335,65 @@ export default function LoginScreen() {
 
       {/* ログインボタン */}
       <View style={styles.buttons}>
+        {errorText ? (
+          <View style={[styles.errorBox, { borderColor: `${colors.primary}33`, backgroundColor: `${colors.primary}0D` }]}>
+            <Text style={[styles.errorText, { color: colors.text }]}>{errorText}</Text>
+          </View>
+        ) : null}
+
+        {isEmailLogin ? (
+          <>
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.text }]}>メールアドレス</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="example@email.com"
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.text }]}>パスワード</Text>
+              <View style={[styles.passwordRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="パスワードを入力"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[styles.passwordInput, { color: colors.text }]}
+                />
+                <Pressable onPress={() => setShowPassword((v) => !v)} style={styles.eyeButton}>
+                  <IconSymbol name={showPassword ? 'eye.slash' : 'eye'} size={18} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => void handleEmailSubmit()}
+              disabled={isLoading}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.8 : 1 },
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>ログイン</Text>
+              )}
+            </Pressable>
+
+            <Pressable onPress={() => setIsEmailLogin(false)} style={styles.backLink}>
+              <Text style={[styles.guestText, { color: colors.mutedForeground }]}>← 戻る</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
         {/* Googleログイン（プライマリ） */}
         <Pressable
           onPress={handleGoogleLogin}
@@ -354,6 +460,8 @@ export default function LoginScreen() {
             </Text>
           </Pressable>
         </View>
+          </>
+        )}
       </View>
 
       {/* 法的リンク */}
@@ -525,6 +633,54 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  errorBox: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  errorText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  formGroup: {
+    gap: 6,
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  input: {
+    height: 44,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    fontSize: 14,
+  },
+  passwordRow: {
+    height: 44,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: Spacing.md,
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingRight: Spacing.sm,
+  },
+  eyeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backLink: {
+    alignItems: 'center',
+    paddingTop: Spacing.sm,
   },
   linksContainer: {
     alignItems: 'center',

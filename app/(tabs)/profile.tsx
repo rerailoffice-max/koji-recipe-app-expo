@@ -2,30 +2,32 @@ import React from 'react';
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
-  StyleSheet,
+  TextInput,
+  Pressable,
   Image,
-  Alert,
-  Linking,
+  StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { supabase, API_BASE_URL } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { RecipeSection, type RecipeItem } from '@/components/ui';
 import type { User } from '@supabase/supabase-js';
 
-type FontSize = 'small' | 'medium' | 'large';
+type FilterTab = 'saved' | 'mine' | 'drafts';
 
-const FONT_SIZE_OPTIONS: { value: FontSize; label: string; size: number }[] = [
-  { value: 'small', label: '小', size: 14 },
-  { value: 'medium', label: '中', size: 16 },
-  { value: 'large', label: '大', size: 18 },
+const FILTER_TABS: { id: FilterTab; label: string; icon: string }[] = [
+  { id: 'saved', label: '保存', icon: 'bookmark' },
+  { id: 'mine', label: '自分の', icon: 'person' },
+  { id: 'drafts', label: '下書き', icon: 'square.and.pencil' },
 ];
 
-export default function ProfileScreen() {
+export default function MyRecipesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -33,7 +35,14 @@ export default function ProfileScreen() {
 
   const [user, setUser] = React.useState<User | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [fontSize, setFontSize] = React.useState<FontSize>('medium');
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [activeFilter, setActiveFilter] = React.useState<FilterTab>('saved');
+
+  // レシピデータ
+  const [savedRecipes, setSavedRecipes] = React.useState<RecipeItem[]>([]);
+  const [myRecipes, setMyRecipes] = React.useState<RecipeItem[]>([]);
+  const [draftRecipes, setDraftRecipes] = React.useState<RecipeItem[]>([]);
 
   // ユーザー情報を取得
   React.useEffect(() => {
@@ -50,7 +59,6 @@ export default function ProfileScreen() {
 
     getUser();
 
-    // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
     });
@@ -58,180 +66,239 @@ export default function ProfileScreen() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ログアウト
-  const handleLogout = async () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            await supabase.auth.signOut();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+  // レシピデータを取得
+  const fetchRecipes = React.useCallback(async (refresh = false) => {
+    if (!user) return;
+    
+    if (refresh) setIsRefreshing(true);
+
+    try {
+      // 保存したレシピ（お気に入り）
+      const { data: likes } = await supabase
+        .from('likes')
+        .select('post_id, posts(*)')
+        .eq('user_id', user.id)
+        .limit(10);
+
+      if (likes) {
+        setSavedRecipes(
+          likes
+            .filter((l: any) => l.posts)
+            .map((l: any) => ({
+              id: l.posts.id,
+              title: l.posts.title,
+              image: l.posts.image_url,
+              authorName: null,
+            }))
+        );
+      }
+
+      // 自分のレシピ（公開済み）
+      const { data: myPosts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (myPosts) {
+        setMyRecipes(
+          myPosts.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            image: p.image_url,
+            authorName: null,
+          }))
+        );
+      }
+
+      // 下書き（非公開）
+      const { data: drafts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_public', false)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+      if (drafts) {
+        setDraftRecipes(
+          drafts.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            image: p.image_url,
+            authorName: null,
+            isDraft: true,
+          }))
+        );
+      }
+    } catch (e) {
+      console.error('Fetch recipes error:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    if (user) {
+      fetchRecipes();
+    }
+  }, [user, fetchRecipes]);
+
+  const handleRecipePress = (id: string) => {
+    console.log('Navigate to recipe:', id);
+    // router.push(`/posts/${id}`);
   };
 
-  // ログインへ
-  const handleLogin = () => {
-    router.push('/login');
-  };
-
-  // 外部リンクを開く
-  const openLink = (url: string) => {
-    Linking.openURL(url);
-  };
+  const userAvatar = user?.user_metadata?.avatar_url;
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'ゲスト';
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: insets.bottom + Spacing.xl },
-      ]}
-    >
-      {/* プロフィールカード */}
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.profileHeader}>
-          {user?.user_metadata?.avatar_url ? (
-            <Image
-              source={{ uri: user.user_metadata.avatar_url }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.muted }]}>
-              <IconSymbol name="person.fill" size={32} color={colors.mutedForeground} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ヘッダー */}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerContent}>
+          {/* ユーザーアバター + タイトル */}
+          <View style={styles.headerLeft}>
+            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+              {userAvatar ? (
+                <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>Re</Text>
+              )}
             </View>
-          )}
-          <View style={styles.profileInfo}>
-            {user ? (
-              <>
-                <Text style={[styles.userName, { color: colors.text }]}>
-                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'ユーザー'}
-                </Text>
-                <Text style={[styles.userEmail, { color: colors.mutedForeground }]}>
-                  {user.email}
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.userName, { color: colors.text }]}>ゲスト</Text>
-                <Text style={[styles.userEmail, { color: colors.mutedForeground }]}>
-                  ログインするとレシピを保存できます
-                </Text>
-              </>
-            )}
+            <Text style={[styles.headerTitle, { color: colors.text }]}>マイレシピ</Text>
+          </View>
+
+          {/* 右アイコン */}
+          <View style={styles.headerRight}>
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => router.push('/settings' as any)}
+            >
+              <IconSymbol name="gearshape" size={22} color={colors.text} />
+            </Pressable>
+            <Pressable style={styles.headerIcon}>
+              <IconSymbol name="bell" size={22} color={colors.text} />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchRecipes(true)}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* 検索バー */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <IconSymbol name="magnifyingglass" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="レシピを検索"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
           </View>
         </View>
 
-        {!user && (
-          <Pressable
-            onPress={handleLogin}
-            style={({ pressed }) => [
-              styles.loginButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-          >
-            <Text style={[styles.loginButtonText, { color: colors.primaryForeground }]}>
-              ログイン
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* 設定セクション */}
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>設定</Text>
-
-        {/* 文字の大きさ */}
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>文字の大きさ</Text>
-          <View style={styles.fontSizeOptions}>
-            {FONT_SIZE_OPTIONS.map((option) => (
+        {/* フィルタータブ */}
+        <View style={styles.filterTabs}>
+          {FILTER_TABS.map((tab) => {
+            const isActive = activeFilter === tab.id;
+            return (
               <Pressable
-                key={option.value}
-                onPress={() => setFontSize(option.value)}
+                key={tab.id}
                 style={[
-                  styles.fontSizeOption,
+                  styles.filterTab,
                   {
-                    backgroundColor: fontSize === option.value ? colors.primary : colors.muted,
+                    backgroundColor: isActive ? colors.surface : 'transparent',
+                    borderColor: isActive ? colors.border : 'transparent',
                   },
                 ]}
+                onPress={() => setActiveFilter(tab.id)}
               >
+                <IconSymbol
+                  name={tab.icon as any}
+                  size={14}
+                  color={isActive ? colors.text : colors.mutedForeground}
+                />
                 <Text
                   style={[
-                    styles.fontSizeOptionText,
-                    {
-                      color: fontSize === option.value ? colors.primaryForeground : colors.text,
-                      fontSize: option.size,
-                    },
+                    styles.filterTabText,
+                    { color: isActive ? colors.text : colors.mutedForeground },
                   ]}
                 >
-                  {option.label}
+                  {tab.label}
                 </Text>
               </Pressable>
-            ))}
-          </View>
+            );
+          })}
         </View>
-      </View>
 
-      {/* リンクセクション */}
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Pressable
-          onPress={() => openLink(`${API_BASE_URL}/terms`)}
-          style={({ pressed }) => [
-            styles.linkRow,
-            { opacity: pressed ? 0.7 : 1, borderBottomColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.linkText, { color: colors.text }]}>利用規約</Text>
-          <IconSymbol name="chevron.right" size={16} color={colors.mutedForeground} />
-        </Pressable>
+        {/* レシピセクション */}
+        {user ? (
+          <>
+            {/* 保存したレシピ */}
+            <RecipeSection
+              title="保存したレシピ"
+              count={savedRecipes.length}
+              recipes={savedRecipes}
+              onRecipePress={handleRecipePress}
+            />
 
-        <Pressable
-          onPress={() => openLink(`${API_BASE_URL}/privacy`)}
-          style={({ pressed }) => [
-            styles.linkRow,
-            { opacity: pressed ? 0.7 : 1, borderBottomColor: 'transparent' },
-          ]}
-        >
-          <Text style={[styles.linkText, { color: colors.text }]}>プライバシーポリシー</Text>
-          <IconSymbol name="chevron.right" size={16} color={colors.mutedForeground} />
-        </Pressable>
-      </View>
+            {/* 自分のレシピ */}
+            <RecipeSection
+              title="自分のレシピ"
+              count={myRecipes.length}
+              recipes={myRecipes}
+              onRecipePress={handleRecipePress}
+            />
 
-      {/* ログアウト */}
-      {user && (
-        <Pressable
-          onPress={handleLogout}
-          style={({ pressed }) => [
-            styles.logoutButton,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              opacity: pressed ? 0.8 : 1,
-            },
-          ]}
-        >
-          <Text style={[styles.logoutButtonText, { color: '#ef4444' }]}>ログアウト</Text>
-        </Pressable>
-      )}
-
-      {/* フッター */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-          © 2025 GOCHISOKOJI
-        </Text>
-      </View>
-    </ScrollView>
+            {/* 下書き中のレシピ */}
+            <RecipeSection
+              title="下書き中のレシピ"
+              count={draftRecipes.length}
+              recipes={draftRecipes}
+              onRecipePress={handleRecipePress}
+            />
+          </>
+        ) : (
+          <View style={styles.loginPrompt}>
+            <Text style={[styles.loginPromptText, { color: colors.mutedForeground }]}>
+              レシピを保存・作成するには{'\n'}ログインしてください
+            </Text>
+            <Pressable
+              style={[styles.loginButton, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/login')}
+            >
+              <Text style={[styles.loginButtonText, { color: colors.primaryForeground }]}>
+                ログイン
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -239,110 +306,111 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    padding: Spacing.md,
-    gap: Spacing.md,
+  header: {
+    borderBottomWidth: 1,
   },
-  card: {
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    padding: Spacing.md,
-    ...Shadows.sm,
-  },
-  profileHeader: {
+  headerContent: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.full,
-  },
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
+    width: 32,
+    height: 32,
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  profileInfo: {
-    flex: 1,
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
-  userName: {
+  avatarText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  userEmail: {
-    fontSize: 14,
+  headerRight: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
   },
-  loginButton: {
-    marginTop: Spacing.md,
-    height: 44,
-    borderRadius: BorderRadius.lg,
+  headerIcon: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  searchContainer: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    height: '100%',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  filterTabText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  loginPrompt: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing['2xl'],
+    paddingHorizontal: Spacing.lg,
+  },
+  loginPromptText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  loginButton: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.lg,
   },
   loginButtonText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.md,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  settingLabel: {
-    fontSize: 15,
-  },
-  fontSizeOptions: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-  },
-  fontSizeOption: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
-    minWidth: 44,
-    alignItems: 'center',
-  },
-  fontSizeOptionText: {
-    fontWeight: '500',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm + 4,
-    borderBottomWidth: 1,
-  },
-  linkText: {
-    fontSize: 15,
-  },
-  logoutButton: {
-    height: 48,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  footer: {
-    alignItems: 'center',
-    paddingTop: Spacing.lg,
-  },
-  footerText: {
-    fontSize: 12,
   },
 });

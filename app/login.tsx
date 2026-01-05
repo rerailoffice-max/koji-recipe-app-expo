@@ -31,6 +31,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
   const [isEmailLogin, setIsEmailLogin] = React.useState(false);
+  const [isSignup, setIsSignup] = React.useState(false);
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -194,11 +195,13 @@ export default function LoginScreen() {
   const handleEmailLogin = () => {
     setErrorText('');
     setIsEmailLogin(true);
+    setIsSignup(false);
   };
 
-  // 新規登録（将来実装）
   const handleSignup = () => {
-    alert('新規登録は現在準備中です。\nGoogleでログインするか、ログインせずにお使いください。');
+    setErrorText('');
+    setIsEmailLogin(true);
+    setIsSignup(true);
   };
 
   // ゲストとして続行
@@ -248,7 +251,13 @@ export default function LoginScreen() {
       // 疎通チェック（Supabaseに到達できるか）
       try {
         const probeUrl = `${SUPABASE_URL}/auth/v1/health`;
+        // #region agent log
+        console.log('[DBG] supabase probe start', { probeUrl });
+        // #endregion
         const res = await fetch(probeUrl, { method: 'GET' });
+        // #region agent log
+        console.log('[DBG] supabase probe result', { ok: res.ok, status: res.status });
+        // #endregion
 
         // #region agent log
         fetch(LOG_URL, {
@@ -267,6 +276,9 @@ export default function LoginScreen() {
         // #endregion
       } catch (e: any) {
         // #region agent log
+        console.log('[DBG] supabase probe failed', { message: e?.message ?? String(e) });
+        // #endregion
+        // #region agent log
         fetch(LOG_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -283,10 +295,10 @@ export default function LoginScreen() {
         // #endregion
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const trimmedEmail = email.trim();
+      const { error } = isSignup
+        ? await supabase.auth.signUp({ email: trimmedEmail, password })
+        : await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
 
       // #region agent log
       fetch(LOG_URL, {
@@ -297,20 +309,35 @@ export default function LoginScreen() {
           runId,
           hypothesisId: 'H_email_login',
           location: 'app/login.tsx:handleEmailSubmit',
-          message: 'signInWithPassword result',
+          message: isSignup ? 'signUp result' : 'signInWithPassword result',
           data: { ok: !error, error: error?.message ?? null },
           timestamp: Date.now(),
         }),
       }).catch(() => {});
       // #endregion
 
+      // #region agent log
+      console.log('[DBG] auth result', { mode: isSignup ? 'signup' : 'login', ok: !error, error: error?.message ?? null });
+      // #endregion
+
       if (error) {
-        setErrorText(error.message.includes('Invalid login credentials') ? 'メールアドレスまたはパスワードが正しくありません。' : error.message);
+        if (!isSignup && error.message.includes('Invalid login credentials')) {
+          setErrorText('メールアドレスまたはパスワードが正しくありません。');
+        } else if (isSignup && error.message.toLowerCase().includes('already')) {
+          setErrorText('このメールアドレスは既に登録されています。');
+        } else {
+          setErrorText(error.message);
+        }
+        return;
+      }
+      if (isSignup) {
+        setErrorText('確認メールを送信しました。メールのリンクを開いてからログインしてください。');
         return;
       }
       router.replace('/(tabs)');
     } catch (e: any) {
-      setErrorText(e?.message ?? 'ログインに失敗しました。');
+      // ここで落ちる場合は通信断が濃厚
+      setErrorText(e?.message ? `通信に失敗しました: ${e.message}` : '通信に失敗しました。');
     } finally {
       setIsLoading(false);
     }
@@ -448,7 +475,7 @@ export default function LoginScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.primaryButtonText}>ログイン</Text>
+                <Text style={styles.primaryButtonText}>{isSignup ? '新規登録' : 'ログイン'}</Text>
               )}
             </Pressable>
 

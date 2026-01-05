@@ -4,13 +4,13 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
-export default function HomeScreen() {
+export default function ProfileScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title">麹レシピ</ThemedText>
+        <ThemedText type="title">プロフィール</ThemedText>
         <ThemedText type="default" style={styles.sub}>
-          Expo移植（PWA）用の最小ホームです
+          ここは最小UI（後で設定/ログアウト等を移植します）
         </ThemedText>
       </View>
     </ThemedView>
@@ -22,3 +22,5 @@ const styles = StyleSheet.create({
   header: { gap: 6 },
   sub: { opacity: 0.7 },
 });
+
+

@@ -248,52 +248,35 @@ export default function LoginScreen() {
       }).catch(() => {});
       // #endregion
 
-      // 疎通チェック（Supabaseに到達できるか）
-      try {
-        const probeUrl = `${SUPABASE_URL}/auth/v1/health`;
-        // #region agent log
-        console.log('[DBG] supabase probe start', { probeUrl });
-        // #endregion
-        const res = await fetch(probeUrl, { method: 'GET' });
-        // #region agent log
-        console.log('[DBG] supabase probe result', { ok: res.ok, status: res.status });
-        // #endregion
+      const probe = async (label: string, url: string) => {
+        try {
+          // #region agent log
+          console.log('[DBG] probe start', { runId, label, url });
+          // #endregion
+          const res = await fetch(url, { method: 'GET' });
+          // #region agent log
+          console.log('[DBG] probe ok', { runId, label, status: res.status, ok: res.ok });
+          // #endregion
+          return { label, ok: true, status: res.status };
+        } catch (e: any) {
+          // #region agent log
+          console.log('[DBG] probe failed', { runId, label, message: e?.message ?? String(e) });
+          // #endregion
+          return { label, ok: false as const, message: e?.message ?? String(e) };
+        }
+      };
 
-        // #region agent log
-        fetch(LOG_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId,
-            hypothesisId: 'H_email_probe',
-            location: 'app/login.tsx:handleEmailSubmit',
-            message: 'supabase health probe',
-            data: { ok: res.ok, status: res.status },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-      } catch (e: any) {
-        // #region agent log
-        console.log('[DBG] supabase probe failed', { message: e?.message ?? String(e) });
-        // #endregion
-        // #region agent log
-        fetch(LOG_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId,
-            hypothesisId: 'H_email_probe',
-            location: 'app/login.tsx:handleEmailSubmit',
-            message: 'supabase health probe failed',
-            data: { message: e?.message ?? String(e) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-      }
+      // 疎通チェック（Supabase以外も含めて比較）
+      const probeResults = await Promise.all([
+        probe('supabase_health', `${SUPABASE_URL}/auth/v1/health`),
+        probe('supabase_root', `${SUPABASE_URL}/`),
+        probe('vercel_app', 'https://koji-recipe-app-c72x.vercel.app'),
+        probe('google_204', 'https://www.google.com/generate_204'),
+      ]);
+
+      // #region agent log
+      console.log('[DBG] probe summary', { runId, probeResults });
+      // #endregion
 
       const trimmedEmail = email.trim();
       const { error } = isSignup

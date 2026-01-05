@@ -119,7 +119,6 @@ export default function LoginScreen() {
               });
 
               if (sessionError) throw sessionError;
-              // onAuthStateChange が発火してリダイレクトされる
             }
           }
         }
@@ -134,14 +133,17 @@ export default function LoginScreen() {
 
   // メールログイン（将来実装）
   const handleEmailLogin = () => {
-    // TODO: メールログイン画面へ遷移
-    alert('メールログインは現在準備中です。Googleでログインしてください。');
+    alert('メールログインは現在準備中です。\nGoogleでログインするか、ログインせずにお使いください。');
   };
 
   // 新規登録（将来実装）
   const handleSignup = () => {
-    // TODO: 新規登録画面へ遷移
-    alert('新規登録は現在準備中です。Googleでログインしてください。');
+    alert('新規登録は現在準備中です。\nGoogleでログインするか、ログインせずにお使いください。');
+  };
+
+  // ゲストとして続行
+  const handleGuestContinue = () => {
+    router.replace('/(tabs)');
   };
 
   // リンクを開く
@@ -174,7 +176,7 @@ export default function LoginScreen() {
       {/* ロゴ・タイトル */}
       <View style={styles.header}>
         <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
-          <IconSymbol name="leaf" size={48} color={colors.primaryForeground} />
+          <IconSymbol name="leaf" size={48} color="#ffffff" />
         </View>
         <Text style={[styles.title, { color: colors.text }]}>GOCHISOKOJI</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -232,7 +234,7 @@ export default function LoginScreen() {
 
       {/* ログインボタン */}
       <View style={styles.buttons}>
-        {/* Googleログイン */}
+        {/* Googleログイン（プライマリ） */}
         <Pressable
           onPress={handleGoogleLogin}
           disabled={isLoading}
@@ -245,13 +247,11 @@ export default function LoginScreen() {
           ]}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color={colors.primaryForeground} />
+            <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <>
               <GoogleIcon />
-              <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>
-                Googleで続ける
-              </Text>
+              <Text style={styles.primaryButtonText}>Googleで続ける</Text>
             </>
           )}
         </Pressable>
@@ -265,30 +265,39 @@ export default function LoginScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
-        {/* メールログイン */}
+        {/* メールログイン（セカンダリ/枠線） */}
         <Pressable
           onPress={handleEmailLogin}
           style={({ pressed }) => [
             styles.secondaryButton,
             {
-              backgroundColor: colors.primary,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
               opacity: pressed ? 0.8 : 1,
             },
           ]}
         >
-          <IconSymbol name="envelope" size={20} color={colors.primaryForeground} />
-          <Text style={[styles.secondaryButtonText, { color: colors.primaryForeground }]}>
+          <IconSymbol name="envelope" size={20} color={colors.text} />
+          <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
             メールアドレスでログイン
           </Text>
         </Pressable>
 
-        {/* 新規登録リンク */}
-        <View style={styles.signupRow}>
-          <Text style={[styles.signupText, { color: colors.mutedForeground }]}>
-            アカウントをお持ちでない方は{' '}
-          </Text>
-          <Pressable onPress={handleSignup}>
-            <Text style={[styles.signupLink, { color: colors.primary }]}>新規登録</Text>
+        {/* 新規登録・ログインせずに使うリンク */}
+        <View style={styles.linksContainer}>
+          <View style={styles.signupRow}>
+            <Text style={[styles.linkText, { color: colors.mutedForeground }]}>
+              アカウントをお持ちでない方は{' '}
+            </Text>
+            <Pressable onPress={handleSignup}>
+              <Text style={[styles.linkHighlight, { color: colors.primary }]}>新規登録</Text>
+            </Pressable>
+          </View>
+
+          <Pressable onPress={handleGuestContinue} style={styles.guestRow}>
+            <Text style={[styles.guestText, { color: colors.mutedForeground }]}>
+              ログインせずに使う
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -344,7 +353,7 @@ export default function LoginScreen() {
   );
 }
 
-// Googleアイコン（SVG風）
+// Googleアイコン
 function GoogleIcon() {
   return (
     <View style={styles.googleIconContainer}>
@@ -407,7 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   buttons: {
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
   primaryButton: {
@@ -422,12 +431,13 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#ffffff',
   },
   googleIconContainer: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -455,28 +465,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 52,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
     gap: Spacing.sm,
   },
   secondaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  linksContainer: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingTop: Spacing.xs,
   },
   signupRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: Spacing.xs,
   },
-  signupText: {
+  linkText: {
     fontSize: 14,
   },
-  signupLink: {
+  linkHighlight: {
     fontSize: 14,
     fontWeight: '600',
   },
+  guestRow: {
+    paddingVertical: Spacing.xs,
+  },
+  guestText: {
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
   legal: {
     paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   legalText: {
     fontSize: 12,

@@ -1,31 +1,115 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * 麹レシピアプリのテーマカラー
+ * Next.js版の globals.css と同期
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// 麹アプリのプライマリカラー
+const primary = '#c3923a';
+const primaryForeground = '#ffffff';
+
+// ライトモードのベース
+const lightBackground = '#F7F1E7';
+const lightSurface = '#ffffff';
+const lightForeground = '#1a1a1a';
+const lightMuted = '#f5f5f4';
+const lightMutedForeground = '#737373';
+const lightBorder = '#e5e5e5';
+
+// ダークモードのベース
+const darkBackground = '#1a1a1a';
+const darkSurface = '#262626';
+const darkForeground = '#fafafa';
+const darkMuted = '#404040';
+const darkMutedForeground = '#a3a3a3';
+const darkBorder = '#404040';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    // 基本
+    text: lightForeground,
+    background: lightBackground,
+    surface: lightSurface,
+    tint: primary,
+    // プライマリ
+    primary,
+    primaryForeground,
+    // ミュート
+    muted: lightMuted,
+    mutedForeground: lightMutedForeground,
+    // ボーダー
+    border: lightBorder,
+    // アイコン
+    icon: lightMutedForeground,
+    tabIconDefault: lightMutedForeground,
+    tabIconSelected: primary,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    // 基本
+    text: darkForeground,
+    background: darkBackground,
+    surface: darkSurface,
+    tint: primary,
+    // プライマリ
+    primary,
+    primaryForeground,
+    // ミュート
+    muted: darkMuted,
+    mutedForeground: darkMutedForeground,
+    // ボーダー
+    border: darkBorder,
+    // アイコン
+    icon: darkMutedForeground,
+    tabIconDefault: darkMutedForeground,
+    tabIconSelected: primary,
   },
 };
+
+// スペーシング（8px単位）
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  '2xl': 48,
+} as const;
+
+// 角丸
+export const BorderRadius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  '2xl': 24,
+  full: 9999,
+} as const;
+
+// シャドウ
+export const Shadows = {
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+} as const;
 
 export const Fonts = Platform.select({
   ios: {

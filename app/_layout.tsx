@@ -70,6 +70,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="compose/edit" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

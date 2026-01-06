@@ -11,6 +11,7 @@ import {
   Pressable,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,9 +28,18 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
+import { supabase } from '@/lib/supabase';
 
 // API Base URL
 const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://koji-recipe-app-c72x.vercel.app';
+
+// 下書きの型
+interface Draft {
+  id: string;
+  title: string;
+  updated_at: string;
+  created_at: string;
+}
 
 interface ChatMessage {
   id: string;
@@ -92,6 +102,11 @@ export default function ComposeScreen() {
   
   // 下書き生成中フラグ
   const [isGeneratingDraft, setIsGeneratingDraft] = React.useState(false);
+  
+  // 下書き一覧
+  const [drafts, setDrafts] = React.useState<Draft[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = React.useState(false);
+  const [showDraftsModal, setShowDraftsModal] = React.useState(false);
 
   // チャット状態
   const [messages, setMessages] = React.useState<ChatMessage[]>([
@@ -284,7 +299,7 @@ export default function ComposeScreen() {
     [isThinking, isGeneratingDraft, handleSendInternal]
   );
 
-  // 下書き生成
+  // 下書き生成してフォーム画面へ遷移
   const handleGenerateDraft = React.useCallback(async () => {
     if (isGeneratingDraft || isThinking) return;
     
@@ -294,7 +309,7 @@ export default function ComposeScreen() {
     const loadingMsgId = `a-draft-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
-      { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに保存中...' },
+      { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに作成中...' },
     ]);
     
     try {
@@ -311,22 +326,32 @@ export default function ComposeScreen() {
       const json = await res.json().catch(() => null);
       
       if (res.ok && json?.success && json?.recipe) {
+        const recipe = json.recipe;
+        
         // 成功メッセージを表示
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingMsgId
-              ? { ...m, text: `「${json.recipe.title}」のレシピを作成しました！\n\n※ 下書きに保存する機能は、次回アップデートで追加予定です。` }
+              ? { ...m, text: `「${recipe.title}」のレシピを作成しました！\n編集画面に移動します...` }
               : m
           )
         );
         setSuggestions([]);
         
-        // アラートで完了を通知
-        Alert.alert(
-          'レシピを作成しました',
-          `「${json.recipe.title}」\n\n※ Expo版では現在、下書き保存機能は準備中です。`,
-          [{ text: 'OK' }]
-        );
+        // フォーム画面へ遷移（生成されたレシピデータを渡す）
+        setTimeout(() => {
+          router.push({
+            pathname: '/compose/edit',
+            params: {
+              title: recipe.title || '',
+              description: recipe.description || '',
+              koji_type: recipe.koji_type || '中華麹',
+              difficulty: recipe.difficulty || 'かんたん',
+              ingredients: JSON.stringify(recipe.ingredients || []),
+              steps: JSON.stringify(recipe.steps || []),
+            },
+          });
+        }, 1000);
       } else {
         setMessages((prev) =>
           prev.map((m) =>
@@ -348,7 +373,86 @@ export default function ComposeScreen() {
     } finally {
       setIsGeneratingDraft(false);
     }
-  }, [isGeneratingDraft, isThinking]);
+  }, [isGeneratingDraft, isThinking, router]);
+  
+  // スキップしてフォーム画面へ遷移
+  const handleSkipToForm = React.useCallback(() => {
+    router.push('/compose/edit');
+  }, [router]);
+  
+  // 下書き一覧を読み込み
+  const loadDrafts = React.useCallback(async () => {
+    setIsLoadingDrafts(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setDrafts([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('posts')
+        .select('id, title, updated_at, created_at')
+        .eq('user_id', user.id)
+        .eq('is_public', false)
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('Error loading drafts:', error);
+        setDrafts([]);
+        return;
+      }
+
+      setDrafts((data ?? []) as Draft[]);
+    } catch (e) {
+      console.error('Load drafts error:', e);
+      setDrafts([]);
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  }, []);
+  
+  // 下書きモーダルを開く
+  const handleOpenDrafts = React.useCallback(() => {
+    setShowDraftsModal(true);
+    loadDrafts();
+  }, [loadDrafts]);
+  
+  // 下書きを再開
+  const handleResumeDraft = React.useCallback(async (draftId: string) => {
+    setShowDraftsModal(false);
+    
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', draftId)
+        .single();
+
+      if (error || !data) {
+        Alert.alert('エラー', '下書きの読み込みに失敗しました');
+        return;
+      }
+
+      // フォーム画面へ遷移（下書きデータを渡す）
+      router.push({
+        pathname: '/compose/edit',
+        params: {
+          draftId: data.id,
+          title: data.title || '',
+          description: data.description || '',
+          koji_type: data.koji_type || '中華麹',
+          difficulty: data.difficulty || 'かんたん',
+          ingredients: JSON.stringify(data.ingredients || []),
+          steps: JSON.stringify(data.steps || []),
+        },
+      });
+    } catch (e) {
+      console.error('Resume draft error:', e);
+      Alert.alert('エラー', '下書きの読み込みに失敗しました');
+    }
+  }, [router]);
 
   // クイックプロンプト選択（事前生成済みメニューを表示）
   const handleSelectQuickPrompt = React.useCallback((promptId: string) => {
@@ -428,10 +532,7 @@ export default function ComposeScreen() {
         }
         rightAction={
           <Pressable
-            onPress={() => {
-              // スキップ → フォーム画面へ（将来実装）
-              console.log('Skip to form');
-            }}
+            onPress={handleSkipToForm}
             style={styles.appBarButton}
           >
             <Text style={[styles.skipText, { color: colors.text }]}>スキップ</Text>
@@ -543,10 +644,7 @@ export default function ComposeScreen() {
 
                   {/* 下書きから再開 */}
                   <Pressable
-                    onPress={() => {
-                      // 下書き一覧へ（将来実装）
-                      console.log('Open drafts');
-                    }}
+                    onPress={handleOpenDrafts}
                     style={styles.draftsLink}
                   >
                     <Text style={[styles.draftsLinkText, { color: colors.primary }]}>
@@ -609,6 +707,72 @@ export default function ComposeScreen() {
             </Pressable>
           </View>
         </Pressable>
+      </Modal>
+
+      {/* 下書き一覧モーダル */}
+      <Modal
+        visible={showDraftsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDraftsModal(false)}
+      >
+        <View style={[styles.draftsModalContainer, { backgroundColor: 'rgba(0,0,0,0.4)' }]}>
+          <View style={[styles.draftsModalContent, { backgroundColor: colors.background }]}>
+            {/* ヘッダー */}
+            <View style={[styles.draftsModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.draftsModalTitle, { color: colors.text }]}>
+                下書き一覧
+              </Text>
+              <Pressable
+                onPress={() => setShowDraftsModal(false)}
+                style={styles.draftsModalClose}
+              >
+                <IconSymbol name="xmark" size={20} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {/* 下書きリスト */}
+            {isLoadingDrafts ? (
+              <View style={styles.draftsLoading}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.draftsLoadingText, { color: colors.mutedForeground }]}>
+                  読み込み中...
+                </Text>
+              </View>
+            ) : drafts.length === 0 ? (
+              <View style={styles.draftsEmpty}>
+                <Text style={[styles.draftsEmptyText, { color: colors.mutedForeground }]}>
+                  下書きはありません
+                </Text>
+                <Text style={[styles.draftsEmptyHint, { color: colors.mutedForeground }]}>
+                  「下書き保存」でレシピを保存できます
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.draftsList}>
+                {drafts.map((draft) => (
+                  <Pressable
+                    key={draft.id}
+                    onPress={() => handleResumeDraft(draft.id)}
+                    style={[styles.draftItem, { borderBottomColor: colors.border }]}
+                  >
+                    <View style={styles.draftItemContent}>
+                      <Text style={[styles.draftTitle, { color: colors.text }]} numberOfLines={1}>
+                        {draft.title || '（無題）'}
+                      </Text>
+                      <Text style={[styles.draftDate, { color: colors.mutedForeground }]}>
+                        更新: {new Date(draft.updated_at || draft.created_at).toLocaleString('ja-JP')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.draftAction, { color: colors.primary }]}>
+                      再開
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -719,5 +883,77 @@ const styles = StyleSheet.create({
   actionSheetText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  // 下書きモーダル
+  draftsModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  draftsModalContent: {
+    maxHeight: '70%',
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  draftsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+  },
+  draftsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  draftsModalClose: {
+    padding: Spacing.sm,
+  },
+  draftsLoading: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  draftsLoadingText: {
+    fontSize: 14,
+  },
+  draftsEmpty: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  draftsEmptyText: {
+    fontSize: 16,
+  },
+  draftsEmptyHint: {
+    fontSize: 12,
+  },
+  draftsList: {
+    flex: 1,
+  },
+  draftItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+  },
+  draftItemContent: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  draftTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  draftDate: {
+    fontSize: 12,
+  },
+  draftAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: Spacing.md,
   },
 });

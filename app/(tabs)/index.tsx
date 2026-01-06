@@ -212,7 +212,7 @@ export default function HomeScreen() {
       if (error) {
         console.error('Supabase weekly fetch error:', error);
       } else if (data && data.length > 0) {
-        // 日付のラベルを付与
+        // 日付のラベルを付与（WeeklyRecipe型に合わせる: day, image）
         const days = ['日', '月', '火', '水', '木', '金', '土'];
         const recipes: WeeklyRecipe[] = data.map((post, index) => {
           const date = new Date();
@@ -220,8 +220,8 @@ export default function HomeScreen() {
           return {
             id: post.id,
             title: post.title,
-            imageUrl: post.image_url,
-            dayLabel: days[date.getDay()],
+            image: post.image_url, // imageUrl → image
+            day: days[date.getDay()], // dayLabel → day
           };
         });
         setWeeklyRecipes(recipes);

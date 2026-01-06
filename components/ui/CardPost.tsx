@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-    height: 120, // 固定高さ
+    height: 130, // 固定高さ（バランス調整）
   },
   content: {
     flexDirection: 'row',
@@ -179,12 +179,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start', // コンテンツを上寄せ
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   ingredients: {
-    fontSize: 12,
+    fontSize: 13,
   },
   tags: {
     flexDirection: 'row',
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   authorName: {
-    fontSize: 12,
+    fontSize: 13,
     flex: 1,
   },
   thumbnail: {

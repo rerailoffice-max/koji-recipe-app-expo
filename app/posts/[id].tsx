@@ -186,6 +186,44 @@ export default function PostDetailScreen() {
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
   const ingredients = post?.ingredients ?? [];
   const steps = post?.steps ?? [];
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // 投稿削除
+  const handleDeletePost = async () => {
+    if (!post || isDeleting) return;
+    
+    Alert.alert(
+      '投稿を削除',
+      'この投稿を削除しますか？この操作は取り消せません。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const { error } = await supabase
+                .from('posts')
+                .delete()
+                .eq('id', post.id);
+              
+              if (error) throw error;
+              
+              Alert.alert('削除完了', '投稿を削除しました', [
+                { text: 'OK', onPress: () => router.replace('/(tabs)') },
+              ]);
+            } catch (e: any) {
+              console.error('Delete error:', e);
+              Alert.alert('エラー', '削除に失敗しました');
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -237,25 +275,36 @@ export default function PostDetailScreen() {
         }
         rightAction={
           isOwner ? (
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/compose/edit',
-                  params: {
-                    draftId: post.id,
-                    title: post.title || '',
-                    description: post.description || '',
-                    koji_type: post.koji_type || '中華麹',
-                    difficulty: post.difficulty || 'かんたん',
-                    ingredients: JSON.stringify(post.ingredients || []),
-                    steps: JSON.stringify(post.steps || []),
-                  },
-                })
-              }
-              style={styles.appBarButton}
-            >
-              <Text style={[styles.editButtonText, { color: colors.text }]}>編集</Text>
-            </Pressable>
+            <View style={styles.appBarRightActions}>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/compose/edit',
+                    params: {
+                      draftId: post.id,
+                      title: post.title || '',
+                      description: post.description || '',
+                      koji_type: post.koji_type || '中華麹',
+                      difficulty: post.difficulty || 'かんたん',
+                      ingredients: JSON.stringify(post.ingredients || []),
+                      steps: JSON.stringify(post.steps || []),
+                    },
+                  })
+                }
+                style={styles.appBarButton}
+              >
+                <Text style={[styles.editButtonText, { color: colors.text }]}>編集</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDeletePost}
+                disabled={isDeleting}
+                style={[styles.appBarButton, { opacity: isDeleting ? 0.5 : 1 }]}
+              >
+                <Text style={[styles.deleteButtonText, { color: colors.destructive || '#DC2626' }]}>
+                  削除
+                </Text>
+              </Pressable>
+            </View>
           ) : null
         }
       />
@@ -410,10 +459,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appBarButton: {
-    width: 44,
+    paddingHorizontal: Spacing.sm,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  appBarRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   editButtonText: {
     fontSize: 14,

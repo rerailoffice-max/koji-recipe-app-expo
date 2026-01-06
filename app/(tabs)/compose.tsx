@@ -207,7 +207,7 @@ export default function ComposeScreen() {
       const isFirstTurn = messages.filter((m) => m.role === 'user').length === 0;
 
       const payload = {
-        kojiType: '中華こうじ',
+        kojiType: '', // AIがメッセージ内容から自動判定
         messages: [...messages, userMsg].map((m) => ({
           role: m.role,
           text: m.text,
@@ -332,9 +332,9 @@ export default function ComposeScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          kojiType: '中華こうじ',
+          kojiType: '', // 会話履歴から自動判定
           difficulty: 'かんたん',
-          additionalRequirements: '家庭向けに簡単で美味しく。麹の使いどころを明確に。',
+          additionalRequirements: '家庭向けに簡単で美味しく。麹の使いどころを明確に。会話の内容に合った麹タイプを使用すること。',
         }),
       });
       
@@ -360,7 +360,7 @@ export default function ComposeScreen() {
             params: {
               title: recipe.title || '',
               description: recipe.description || '',
-              koji_type: recipe.koji_type || '中華麹',
+              koji_type: recipe.koji_type || '',
               difficulty: recipe.difficulty || 'かんたん',
               ingredients: JSON.stringify(recipe.ingredients || []),
               steps: JSON.stringify(recipe.steps || []),
@@ -480,7 +480,7 @@ export default function ComposeScreen() {
           draftId: data.id,
           title: data.title || '',
           description: data.description || '',
-          koji_type: data.koji_type || '中華麹',
+          koji_type: data.koji_type || '',
           difficulty: data.difficulty || 'かんたん',
           ingredients: JSON.stringify(data.ingredients || []),
           steps: JSON.stringify(data.steps || []),

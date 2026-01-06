@@ -3,15 +3,18 @@
     "name": "こうじレシピ",
     "slug": "koji-recipe-app-expo",
     "version": "1.0.0",
+    "description": "麹レシピを、AIと。毎日の料理を麹で美味しく、健康に。",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kojirecipeappexpo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gochisokoji.kojirecipe"
     },
     "android": {
+      "package": "com.gochisokoji.kojirecipe",
       "adaptiveIcon": {
         "backgroundColor": "#F7F1E7",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -23,10 +26,18 @@
     },
     "web": {
       "output": "static",
+      "bundler": "metro",
+      "name": "こうじレシピ",
+      "shortName": "こうじレシピ",
+      "description": "麹レシピを、AIと。毎日の料理を麹で美味しく、健康に。",
+      "lang": "ja",
       "display": "standalone",
+      "orientation": "portrait",
       "themeColor": "#c3923a",
       "backgroundColor": "#F7F1E7",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "startUrl": "/",
+      "scope": "/"
     },
     "plugins": [
       "expo-router",

@@ -218,9 +218,9 @@ export default function SettingsScreen() {
     );
   };
 
-  // リンクを開く
-  const openLink = (path: string) => {
-    Linking.openURL(`${API_BASE_URL}${path}`);
+  // 内部ページに遷移
+  const navigateTo = (path: string) => {
+    router.push(path as any);
   };
 
   if (isLoading) {
@@ -436,13 +436,13 @@ export default function SettingsScreen() {
         {/* フッター */}
         <View style={styles.footer}>
           <View style={styles.legalLinks}>
-            <Pressable onPress={() => openLink('/terms')}>
+            <Pressable onPress={() => navigateTo('/terms')}>
               <Text style={[styles.legalLink, { color: colors.mutedForeground }]}>
                 利用規約
               </Text>
             </Pressable>
             <Text style={[styles.legalDivider, { color: colors.mutedForeground }]}>|</Text>
-            <Pressable onPress={() => openLink('/privacy')}>
+            <Pressable onPress={() => navigateTo('/privacy')}>
               <Text style={[styles.legalLink, { color: colors.mutedForeground }]}>
                 プライバシーポリシー
               </Text>

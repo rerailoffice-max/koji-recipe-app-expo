@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Text } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Text, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { supabase } from '@/lib/supabase';
 import {
   AppBar,
   TabBar,
@@ -62,6 +64,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   // 状態
   const [activeTab, setActiveTab] = React.useState<'recent' | 'popular'>('recent');
@@ -73,6 +76,39 @@ export default function HomeScreen() {
   const [weeklyRecipes, setWeeklyRecipes] = React.useState<WeeklyRecipe[]>([]);
   const [isLoadingWeekly, setIsLoadingWeekly] = React.useState(true);
   const [savedIds, setSavedIds] = React.useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
+  
+  // ユーザーと保存済みIDを取得
+  React.useEffect(() => {
+    const loadUserAndSaved = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setCurrentUserId(null);
+        setSavedIds(new Set());
+        return;
+      }
+      setCurrentUserId(user.id);
+      
+      // 保存済みの投稿IDを取得
+      const { data: likes } = await supabase
+        .from('likes')
+        .select('post_id')
+        .eq('user_id', user.id);
+      
+      if (likes) {
+        setSavedIds(new Set(likes.map((l) => l.post_id)));
+      }
+    };
+    
+    loadUserAndSaved();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadUserAndSaved();
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   // 麹フィルタートグル
   const toggleKoji = React.useCallback((id: string) => {
@@ -152,18 +188,67 @@ export default function HomeScreen() {
   }, [fetchWeeklyRecipes]);
 
   // 保存トグル
-  const handleToggleSave = React.useCallback((postId: string) => {
+  const handleToggleSave = React.useCallback(async (postId: string) => {
+    if (!currentUserId) {
+      Alert.alert('ログインが必要です', '保存するにはログインしてください', [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: 'ログイン', onPress: () => router.push('/login') },
+      ]);
+      return;
+    }
+    
+    if (savingIds.has(postId)) return;
+    
+    const wasSaved = savedIds.has(postId);
+    
+    // Optimistic update
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(postId)) {
+      if (wasSaved) {
         next.delete(postId);
       } else {
         next.add(postId);
       }
       return next;
     });
-    // TODO: API連携
-  }, []);
+    setSavingIds((prev) => new Set(prev).add(postId));
+    
+    try {
+      if (wasSaved) {
+        // 保存解除
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('user_id', currentUserId)
+          .eq('post_id', postId);
+        if (error) throw error;
+      } else {
+        // 保存
+        const { error } = await supabase
+          .from('likes')
+          .insert({ user_id: currentUserId, post_id: postId });
+        if (error) throw error;
+      }
+    } catch (e: any) {
+      // Rollback
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) {
+          next.add(postId);
+        } else {
+          next.delete(postId);
+        }
+        return next;
+      });
+      console.error('Save error:', e);
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    }
+  }, [currentUserId, savedIds, savingIds, router]);
 
   // レシピカードをレンダリング
   const renderPost = React.useCallback(
@@ -179,14 +264,14 @@ export default function HomeScreen() {
         ingredients={item.ingredients}
         postedDate={getRelativeTime(item.created_at)}
         isSaved={savedIds.has(item.id)}
+        isSaving={savingIds.has(item.id)}
         onToggleSave={handleToggleSave}
         onClick={() => {
-          // TODO: 詳細画面へ遷移
-          console.log('Navigate to post:', item.id);
+          router.push(`/posts/${item.id}` as any);
         }}
       />
     ),
-    [savedIds, handleToggleSave]
+    [savedIds, savingIds, handleToggleSave, router]
   );
 
   const keyExtractor = React.useCallback((item: Post) => item.id, []);
@@ -218,7 +303,7 @@ export default function HomeScreen() {
           recipes={weeklyRecipes}
           isLoading={isLoadingWeekly}
           onRecipeClick={(id) => {
-            console.log('Navigate to weekly recipe:', id);
+            router.push(`/posts/${id}` as any);
           }}
         />
       </>

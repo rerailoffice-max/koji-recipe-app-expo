@@ -304,11 +304,21 @@ export default function ComposeScreen() {
     if (isGeneratingDraft || isThinking) return;
     
     setIsGeneratingDraft(true);
+    setSuggestions([]); // チップを非表示にする
+    
+    // ユーザーメッセージを追加（チップをタップしたことを表現）
+    const userMsgId = `u-draft-${Date.now()}`;
+    const userMsg: ChatMessage = {
+      id: userMsgId,
+      role: 'user',
+      text: 'いい感じ、下書きして',
+    };
     
     // ローディングメッセージを追加
-    const loadingMsgId = `a-draft-${Date.now()}`;
+    const loadingMsgId = `a-draft-${Date.now() + 1}`;
     setMessages((prev) => [
       ...prev,
+      userMsg,
       { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに作成中...' },
     ]);
     
@@ -627,13 +637,15 @@ export default function ComposeScreen() {
                             styles.exampleCard,
                             {
                               borderColor: colors.primary,
-                              backgroundColor: `${colors.primary}0D`,
+                              backgroundColor: colors.surface,
                             },
                           ]}
                         >
-                          <Text style={[styles.exampleLabel, { color: colors.mutedForeground }]}>
-                            タップして送信 →
-                          </Text>
+                          <View style={styles.exampleCardHeader}>
+                            <Text style={[styles.exampleLabel, { color: colors.primary }]}>
+                              タップして送信 →
+                            </Text>
+                          </View>
                           <Text style={[styles.exampleText, { color: colors.text }]}>
                             {exampleText}
                           </Text>
@@ -838,32 +850,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   exampleSection: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
   },
   exampleLoading: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
   exampleLoadingText: {
-    fontSize: 12,
+    fontSize: 13,
   },
   exampleCard: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1.5,
     borderStyle: 'dashed',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exampleCardHeader: {
+    marginBottom: Spacing.sm,
   },
   exampleLabel: {
-    fontSize: 11,
-    marginBottom: Spacing.xs,
+    fontSize: 12,
+    fontWeight: '600',
     textAlign: 'right',
   },
   exampleText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   modalOverlay: {
     flex: 1,

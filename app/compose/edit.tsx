@@ -60,6 +60,17 @@ const DIFFICULTIES = [
   { value: 'むずかしい', label: 'むずかしい' },
 ];
 
+// JSONを安全にパースするヘルパー
+function safeJsonParse<T>(str: string | undefined, fallback: T): T {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str) as T;
+  } catch (e) {
+    console.warn('JSON parse error:', e, 'input:', str);
+    return fallback;
+  }
+}
+
 export default function RecipeEditScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -76,29 +87,55 @@ export default function RecipeEditScreen() {
   }>();
 
   // フォームの初期値を設定
-  const [formData, setFormData] = React.useState<FormData>(() => {
-    const initialIngredients: Ingredient[] = params.ingredients
-      ? JSON.parse(params.ingredients)
-      : [{ name: '', amount: '' }];
-    const initialSteps: Step[] = params.steps
-      ? JSON.parse(params.steps)
-      : [{ order: 1, description: '' }];
-
-    return {
-      title: params.title || '',
-      description: params.description || '',
-      koji_type: params.koji_type || '中華麹',
-      difficulty: params.difficulty || 'かんたん',
-      ingredients: initialIngredients,
-      steps: initialSteps,
-      image_url: null,
-    };
+  const [formData, setFormData] = React.useState<FormData>({
+    title: '',
+    description: '',
+    koji_type: '中華麹',
+    difficulty: 'かんたん',
+    ingredients: [{ name: '', amount: '' }],
+    steps: [{ order: 1, description: '' }],
+    image_url: null,
   });
 
   const [imageUri, setImageUri] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSavingDraft, setIsSavingDraft] = React.useState(false);
-  const [draftId, setDraftId] = React.useState<string | null>(params.draftId || null);
+  const [draftId, setDraftId] = React.useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = React.useState(false);
+
+  // パラメータからフォームデータを設定
+  React.useEffect(() => {
+    if (isInitialized) return; // 既に初期化済みの場合はスキップ
+    
+    const hasParams = params.title || params.ingredients || params.steps;
+    
+    if (hasParams || params.draftId) {
+      const initialIngredients = safeJsonParse<Ingredient[]>(
+        params.ingredients,
+        [{ name: '', amount: '' }]
+      );
+      const initialSteps = safeJsonParse<Step[]>(
+        params.steps,
+        [{ order: 1, description: '' }]
+      );
+
+      setFormData({
+        title: params.title || '',
+        description: params.description || '',
+        koji_type: params.koji_type || '中華麹',
+        difficulty: params.difficulty || 'かんたん',
+        ingredients: initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }],
+        steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
+        image_url: null,
+      });
+
+      if (params.draftId) {
+        setDraftId(params.draftId);
+      }
+      
+      setIsInitialized(true);
+    }
+  }, [params, isInitialized]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 
@@ -681,7 +718,7 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.sm,
   },
   ingredientAmount: {
-    width: 80,
+    width: 100,
     padding: Spacing.md,
     fontSize: 16,
     textAlign: 'right',

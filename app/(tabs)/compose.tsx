@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
   Image,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,6 +67,9 @@ function generateGreeting(): string {
   return `おはよう！\nこうじのコウちゃんだよ！\n\n${month}月の旬: ${seasonalIngredients} とかがおすすめ😊\n\n今日はどんな料理を作りたい？\n下の「例」や「使うこうじ」を選んでね！`;
 }
 
+// 事前生成されたメニュー案の型
+type PreGeneratedMenus = Record<string, { menuIdea: string; kojiType: string }>;
+
 export default function ComposeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -77,6 +81,17 @@ export default function ComposeScreen() {
   
   // 選択されたクイックプロンプト
   const [selectedQuickPrompt, setSelectedQuickPrompt] = React.useState<string | null>(null);
+  
+  // 事前生成されたメニュー案
+  const [preGeneratedMenus, setPreGeneratedMenus] = React.useState<PreGeneratedMenus | null>(null);
+  const preGenerateMenusInFlightRef = React.useRef(false);
+  
+  // メニュー例テキスト（クイックプロンプト選択時に表示）
+  const [exampleText, setExampleText] = React.useState<string | null>(null);
+  const [introStatus, setIntroStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  
+  // 下書き生成中フラグ
+  const [isGeneratingDraft, setIsGeneratingDraft] = React.useState(false);
 
   // チャット状態
   const [messages, setMessages] = React.useState<ChatMessage[]>([
@@ -92,6 +107,46 @@ export default function ComposeScreen() {
 
   // FlatListのref
   const flatListRef = React.useRef<FlatList>(null);
+  
+  // ページ読み込み時に全カテゴリのメニュー案を事前生成
+  React.useEffect(() => {
+    if (preGeneratedMenus !== null) return; // 既に生成済み
+    if (preGenerateMenusInFlightRef.current) return;
+
+    const loadAllMenuIdeas = async () => {
+      preGenerateMenusInFlightRef.current = true;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ allCategories: true }),
+        });
+        const json = await res.json().catch(() => null);
+        
+        if (res.ok && json?.success && json?.results) {
+          setPreGeneratedMenus((prev) => (prev ? prev : json.results));
+        }
+      } catch (e) {
+        console.error('Failed to pre-generate menu ideas:', e);
+      } finally {
+        preGenerateMenusInFlightRef.current = false;
+      }
+    };
+
+    void loadAllMenuIdeas();
+  }, [preGeneratedMenus]);
+  
+  // 事前生成が完了したら、選択中のカテゴリの内容で更新
+  React.useEffect(() => {
+    if (!selectedQuickPrompt) return;
+    if (!preGeneratedMenus) return;
+    
+    const preGenerated = preGeneratedMenus[selectedQuickPrompt];
+    if (preGenerated?.menuIdea) {
+      setExampleText(preGenerated.menuIdea);
+      setIntroStatus('ready');
+    }
+  }, [preGeneratedMenus, selectedQuickPrompt]);
 
   // メッセージが増えたら自動スクロール
   React.useEffect(() => {
@@ -102,28 +157,29 @@ export default function ComposeScreen() {
     }
   }, [messages.length]);
 
-  // チャット送信
-  const handleSend = React.useCallback(async () => {
-    const text = input.trim();
-    const attachment = pendingAttachment;
-
-    if (!text && !attachment) return;
-    if (isThinking) return;
+  // 内部送信関数（isQuickRecipeModeを明示的に指定）
+  const handleSendInternal = React.useCallback(async (
+    text: string,
+    isQuickRecipeMode: boolean,
+    attachments?: ChatAttachment[]
+  ) => {
+    if (!text && (!attachments || attachments.length === 0)) return;
+    if (isThinking || isGeneratingDraft) return;
 
     setHasStarted(true);
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
-      text: text || (attachment ? 'この写真で料理を考えてください。' : ''),
-      attachments: attachment ? [attachment] : undefined,
+      text: text || (attachments?.length ? 'この写真で料理を考えてください。' : ''),
+      attachments: attachments,
     };
 
     const pendingAiId = `a-${Date.now() + 1}`;
     const pendingAiMsg: ChatMessage = {
       id: pendingAiId,
       role: 'ai',
-      text: '考え中...',
+      text: isQuickRecipeMode ? 'レシピを考案中...' : '考え中...',
     };
 
     setMessages((prev) => [...prev, userMsg, pendingAiMsg]);
@@ -149,7 +205,7 @@ export default function ComposeScreen() {
               : undefined,
         })),
         firstTurn: isFirstTurn,
-        isQuickRecipeMode: false,
+        isQuickRecipeMode,
       };
 
       const res = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -189,102 +245,132 @@ export default function ComposeScreen() {
     } finally {
       setIsThinking(false);
     }
-  }, [input, pendingAttachment, isThinking, messages]);
+  }, [isThinking, isGeneratingDraft, messages]);
+
+  // 通常のチャット送信（isQuickRecipeMode: false）
+  const handleSend = React.useCallback(async () => {
+    const text = input.trim();
+    const attachment = pendingAttachment;
+    await handleSendInternal(
+      text || (attachment ? 'この写真で料理を考えてください。' : ''),
+      false,
+      attachment ? [attachment] : undefined
+    );
+  }, [input, pendingAttachment, handleSendInternal]);
+
+  // クイックプロンプト経由での送信（isQuickRecipeMode: true）
+  const handleSendWithQuickRecipeMode = React.useCallback(
+    async (text: string) => {
+      if (!text.trim() || isThinking || isGeneratingDraft) return;
+      await handleSendInternal(text, true, undefined);
+    },
+    [handleSendInternal, isThinking, isGeneratingDraft]
+  );
 
   // チップをタップして送信
   const handleChipPress = React.useCallback(
     (reply: QuickReply) => {
-      if (isThinking) return;
-      handleSendWithText(reply.text);
+      if (isThinking || isGeneratingDraft) return;
+      
+      // 「いい感じ、下書きして」チップの場合は下書き生成
+      if (reply.label.includes('下書き') || reply.text.includes('下書き')) {
+        handleGenerateDraft();
+        return;
+      }
+      
+      // 通常のチップは通常送信
+      handleSendInternal(reply.text, false, undefined);
     },
-    [isThinking]
+    [isThinking, isGeneratingDraft, handleSendInternal]
   );
 
-  // テキスト指定で送信
-  const handleSendWithText = React.useCallback(
-    async (text: string) => {
-      if (!text.trim() || isThinking) return;
-
-      setHasStarted(true);
-
-      const userMsg: ChatMessage = {
-        id: `u-${Date.now()}`,
-        role: 'user',
-        text,
-      };
-
-      const pendingAiId = `a-${Date.now() + 1}`;
-      const pendingAiMsg: ChatMessage = {
-        id: pendingAiId,
-        role: 'ai',
-        text: '考え中...',
-      };
-
-      setMessages((prev) => [...prev, userMsg, pendingAiMsg]);
-      setInput('');
-      setIsThinking(true);
-      setSuggestions([]);
-
-      try {
-        const isFirstTurn = messages.filter((m) => m.role === 'user').length === 0;
-
-        const payload = {
+  // 下書き生成
+  const handleGenerateDraft = React.useCallback(async () => {
+    if (isGeneratingDraft || isThinking) return;
+    
+    setIsGeneratingDraft(true);
+    
+    // ローディングメッセージを追加
+    const loadingMsgId = `a-draft-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに保存中...' },
+    ]);
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/generate-recipe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           kojiType: '中華こうじ',
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.role,
-            text: m.text,
-          })),
-          firstTurn: isFirstTurn,
-          isQuickRecipeMode: !!selectedQuickPrompt,
-        };
-
-        const res = await fetch(`${API_BASE_URL}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        const json = await res.json().catch(() => null);
-        const aiText =
-          res.ok && json?.success && typeof json?.reply === 'string'
-            ? json.reply
-            : 'ごめんね、うまく返答できなかったよ。もう一度送ってみて！';
-
-        const newSuggestions: QuickReply[] = Array.isArray(json?.suggestions)
-          ? json.suggestions
-              .filter((s: any) => s?.label && s?.text)
-              .slice(0, 8)
-              .map((s: any, idx: number) => ({
-                id: `sug-${idx}`,
-                label: String(s.label),
-                text: String(s.text),
-              }))
-          : [];
-
-        setMessages((prev) =>
-          prev.map((m) => (m.id === pendingAiId ? { ...m, text: aiText } : m))
-        );
-        setSuggestions(newSuggestions);
-      } catch (e) {
-        console.error('Chat API error:', e);
+          difficulty: 'かんたん',
+          additionalRequirements: '家庭向けに簡単で美味しく。麹の使いどころを明確に。',
+        }),
+      });
+      
+      const json = await res.json().catch(() => null);
+      
+      if (res.ok && json?.success && json?.recipe) {
+        // 成功メッセージを表示
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === pendingAiId ? { ...m, text: '通信に失敗しました。もう一度送ってみて！' } : m
+            m.id === loadingMsgId
+              ? { ...m, text: `「${json.recipe.title}」のレシピを作成しました！\n\n※ 下書きに保存する機能は、次回アップデートで追加予定です。` }
+              : m
           )
         );
-      } finally {
-        setIsThinking(false);
+        setSuggestions([]);
+        
+        // アラートで完了を通知
+        Alert.alert(
+          'レシピを作成しました',
+          `「${json.recipe.title}」\n\n※ Expo版では現在、下書き保存機能は準備中です。`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === loadingMsgId
+              ? { ...m, text: json?.error || 'レシピの作成に失敗しました。もう一度お試しください。' }
+              : m
+          )
+        );
       }
-    },
-    [isThinking, messages, selectedQuickPrompt]
-  );
+    } catch (e) {
+      console.error('Generate draft error:', e);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingMsgId
+            ? { ...m, text: '通信に失敗しました。もう一度お試しください。' }
+            : m
+        )
+      );
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  }, [isGeneratingDraft, isThinking]);
 
-  // クイックプロンプト選択
+  // クイックプロンプト選択（事前生成済みメニューを表示）
   const handleSelectQuickPrompt = React.useCallback((promptId: string) => {
     setSelectedQuickPrompt(promptId);
-    // 選択後、自動で送信
-    handleSendWithText(promptId);
-  }, [handleSendWithText]);
+    
+    // 事前生成済みメニューがあれば即座に表示
+    const preGenerated = preGeneratedMenus?.[promptId];
+    if (preGenerated?.menuIdea) {
+      setExampleText(preGenerated.menuIdea);
+      setIntroStatus('ready');
+      return;
+    }
+    
+    // まだ生成中の場合はローディング表示
+    setExampleText(null);
+    setIntroStatus('loading');
+  }, [preGeneratedMenus]);
+  
+  // メニュー例をタップして即レシピモードで送信
+  const handleTapExample = React.useCallback((text: string) => {
+    handleSendWithQuickRecipeMode(text);
+  }, [handleSendWithQuickRecipeMode]);
 
   // 画像ピッカー
   const { takePhoto, pickFromLibrary } = useImagePicker();
@@ -401,12 +487,16 @@ export default function ComposeScreen() {
                       <Pressable
                         key={prompt.id}
                         onPress={() => handleSelectQuickPrompt(prompt.id)}
-                        disabled={isThinking}
+                        disabled={isThinking || isGeneratingDraft}
                         style={[
                           styles.quickPromptChip,
                           {
-                            borderColor: `${colors.primary}4D`,
-                            backgroundColor: `${colors.primary}0D`,
+                            borderColor: selectedQuickPrompt === prompt.id
+                              ? colors.primary
+                              : `${colors.primary}4D`,
+                            backgroundColor: selectedQuickPrompt === prompt.id
+                              ? `${colors.primary}1A`
+                              : `${colors.primary}0D`,
                           },
                         ]}
                       >
@@ -416,6 +506,40 @@ export default function ComposeScreen() {
                       </Pressable>
                     ))}
                   </View>
+                  
+                  {/* 選択されたカテゴリのメニュー例 */}
+                  {selectedQuickPrompt && (
+                    <View style={styles.exampleSection}>
+                      {introStatus === 'loading' && (
+                        <View style={styles.exampleLoading}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text style={[styles.exampleLoadingText, { color: colors.mutedForeground }]}>
+                            メニュー例を生成中...
+                          </Text>
+                        </View>
+                      )}
+                      {introStatus === 'ready' && exampleText && (
+                        <Pressable
+                          onPress={() => handleTapExample(exampleText)}
+                          disabled={isThinking || isGeneratingDraft}
+                          style={[
+                            styles.exampleCard,
+                            {
+                              borderColor: colors.primary,
+                              backgroundColor: `${colors.primary}0D`,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.exampleLabel, { color: colors.mutedForeground }]}>
+                            タップして送信 →
+                          </Text>
+                          <Text style={[styles.exampleText, { color: colors.text }]}>
+                            {exampleText}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
 
                   {/* 下書きから再開 */}
                   <Pressable
@@ -548,6 +672,34 @@ const styles = StyleSheet.create({
   },
   draftsLinkText: {
     fontSize: 14,
+  },
+  exampleSection: {
+    marginTop: Spacing.md,
+  },
+  exampleLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  exampleLoadingText: {
+    fontSize: 12,
+  },
+  exampleCard: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  exampleLabel: {
+    fontSize: 11,
+    marginBottom: Spacing.xs,
+    textAlign: 'right',
+  },
+  exampleText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,

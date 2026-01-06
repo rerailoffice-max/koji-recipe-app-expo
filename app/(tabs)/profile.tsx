@@ -19,9 +19,9 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RecipeSection, type RecipeItem } from '@/components/ui';
 import type { User } from '@supabase/supabase-js';
 
-type FilterTab = 'saved' | 'mine' | 'drafts';
+type FilterTab = 'all' | 'saved' | 'mine' | 'drafts';
 
-const FILTER_TABS: { id: FilterTab; label: string; icon: string }[] = [
+const FILTER_TABS: { id: Exclude<FilterTab, 'all'>; label: string; icon: string }[] = [
   { id: 'saved', label: '保存', icon: 'bookmark' },
   { id: 'mine', label: '自分の', icon: 'person' },
   { id: 'drafts', label: '下書き', icon: 'square.and.pencil' },
@@ -37,7 +37,7 @@ export default function MyRecipesScreen() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [activeFilter, setActiveFilter] = React.useState<FilterTab>('saved');
+  const [activeFilter, setActiveFilter] = React.useState<FilterTab>('all');
 
   // レシピデータ
   const [savedRecipes, setSavedRecipes] = React.useState<RecipeItem[]>([]);
@@ -147,8 +147,7 @@ export default function MyRecipesScreen() {
   }, [user, fetchRecipes]);
 
   const handleRecipePress = (id: string) => {
-    console.log('Navigate to recipe:', id);
-    // router.push(`/posts/${id}`);
+    router.push(`/posts/${id}` as any);
   };
 
   const userAvatar = user?.user_metadata?.avatar_url;
@@ -235,7 +234,7 @@ export default function MyRecipesScreen() {
                     borderColor: isActive ? colors.border : 'transparent',
                   },
                 ]}
-                onPress={() => setActiveFilter(tab.id)}
+                onPress={() => setActiveFilter(isActive ? 'all' : tab.id)}
               >
                 <IconSymbol
                   name={tab.icon as any}
@@ -255,32 +254,56 @@ export default function MyRecipesScreen() {
           })}
         </View>
 
-        {/* レシピセクション */}
+        {/* レシピセクション - フィルターに応じて表示切り替え */}
         {user ? (
           <>
             {/* 保存したレシピ */}
-            <RecipeSection
-              title="保存したレシピ"
-              count={savedRecipes.length}
-              recipes={savedRecipes}
-              onRecipePress={handleRecipePress}
-            />
+            {(activeFilter === 'all' || activeFilter === 'saved') && savedRecipes.length > 0 && (
+              <RecipeSection
+                title="保存したレシピ"
+                count={savedRecipes.length}
+                recipes={savedRecipes}
+                onRecipePress={handleRecipePress}
+                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('saved') : undefined}
+              />
+            )}
 
             {/* 自分のレシピ */}
-            <RecipeSection
-              title="自分のレシピ"
-              count={myRecipes.length}
-              recipes={myRecipes}
-              onRecipePress={handleRecipePress}
-            />
+            {(activeFilter === 'all' || activeFilter === 'mine') && myRecipes.length > 0 && (
+              <RecipeSection
+                title="自分のレシピ"
+                count={myRecipes.length}
+                recipes={myRecipes}
+                onRecipePress={handleRecipePress}
+                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('mine') : undefined}
+              />
+            )}
 
             {/* 下書き中のレシピ */}
-            <RecipeSection
-              title="下書き中のレシピ"
-              count={draftRecipes.length}
-              recipes={draftRecipes}
-              onRecipePress={handleRecipePress}
-            />
+            {(activeFilter === 'all' || activeFilter === 'drafts') && draftRecipes.length > 0 && (
+              <RecipeSection
+                title="下書き中のレシピ"
+                count={draftRecipes.length}
+                recipes={draftRecipes}
+                onRecipePress={handleRecipePress}
+                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('drafts') : undefined}
+              />
+            )}
+
+            {/* 空の状態 */}
+            {((activeFilter === 'saved' && savedRecipes.length === 0) ||
+              (activeFilter === 'mine' && myRecipes.length === 0) ||
+              (activeFilter === 'drafts' && draftRecipes.length === 0) ||
+              (activeFilter === 'all' && savedRecipes.length === 0 && myRecipes.length === 0 && draftRecipes.length === 0)) && (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyStateText, { color: colors.mutedForeground }]}>
+                  {activeFilter === 'saved' && '保存したレシピはまだありません'}
+                  {activeFilter === 'mine' && '自分のレシピはまだありません'}
+                  {activeFilter === 'drafts' && '下書きはまだありません'}
+                  {activeFilter === 'all' && 'まだレシピがありません'}
+                </Text>
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.loginPrompt}>
@@ -412,5 +435,16 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing['2xl'],
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

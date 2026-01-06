@@ -304,7 +304,7 @@ export default function ComposeScreen() {
     [isThinking, isGeneratingDraft, handleSendInternal]
   );
 
-  // 下書き生成してフォーム画面へ遷移
+  // 下書き生成してフォーム画面へ遷移（会話からレシピを抽出）
   const handleGenerateDraft = React.useCallback(async () => {
     if (isGeneratingDraft || isThinking) return;
     
@@ -321,20 +321,22 @@ export default function ComposeScreen() {
     
     // ローディングメッセージを追加
     const loadingMsgId = `a-draft-${Date.now() + 1}`;
-    setMessages((prev) => [
-      ...prev,
-      userMsg,
+    const currentMessages = [...messages, userMsg];
+    setMessages([
+      ...currentMessages,
       { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに作成中...' },
     ]);
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/generate-recipe`, {
+      // 会話履歴からレシピを抽出するAPIを呼び出し
+      const res = await fetch(`${API_BASE_URL}/api/extract-recipe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          kojiType: '', // 会話履歴から自動判定
-          difficulty: 'かんたん',
-          additionalRequirements: '家庭向けに簡単で美味しく。麹の使いどころを明確に。会話の内容に合った麹タイプを使用すること。',
+          messages: currentMessages.map((m) => ({
+            role: m.role,
+            text: m.text,
+          })),
         }),
       });
       
@@ -347,13 +349,13 @@ export default function ComposeScreen() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingMsgId
-              ? { ...m, text: `「${recipe.title}」のレシピを作成しました！\n編集画面に移動します...` }
+              ? { ...m, text: `「${recipe.title}」の下書きを作成しました！\n編集画面に移動します...` }
               : m
           )
         );
         setSuggestions([]);
         
-        // フォーム画面へ遷移（生成されたレシピデータを渡す）
+        // フォーム画面へ遷移（抽出されたレシピデータを渡す）
         setTimeout(() => {
           router.push({
             pathname: '/compose/edit',
@@ -364,6 +366,7 @@ export default function ComposeScreen() {
               difficulty: recipe.difficulty || 'かんたん',
               ingredients: JSON.stringify(recipe.ingredients || []),
               steps: JSON.stringify(recipe.steps || []),
+              tips: recipe.tips || '',
             },
           });
         }, 1000);
@@ -371,13 +374,13 @@ export default function ComposeScreen() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingMsgId
-              ? { ...m, text: json?.error || 'レシピの作成に失敗しました。もう一度お試しください。' }
+              ? { ...m, text: json?.error || 'レシピの抽出に失敗しました。もう一度お試しください。' }
               : m
           )
         );
       }
     } catch (e) {
-      console.error('Generate draft error:', e);
+      console.error('Extract recipe error:', e);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === loadingMsgId
@@ -388,7 +391,7 @@ export default function ComposeScreen() {
     } finally {
       setIsGeneratingDraft(false);
     }
-  }, [isGeneratingDraft, isThinking, router]);
+  }, [isGeneratingDraft, isThinking, messages, router]);
   
   // スキップしてフォーム画面へ遷移
   const handleSkipToForm = React.useCallback(() => {

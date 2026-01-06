@@ -164,16 +164,19 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
+    height: 120, // 固定高さ
   },
   content: {
     flexDirection: 'row',
     paddingLeft: Spacing.sm,
+    flex: 1, // 親の高さいっぱいに
   },
   info: {
     flex: 1,
     paddingVertical: Spacing.sm,
     paddingRight: Spacing.sm,
     gap: Spacing.xs,
+    justifyContent: 'flex-start', // コンテンツを上寄せ
   },
   title: {
     fontSize: 14,
@@ -219,6 +222,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     width: 128,
+    height: '100%', // 親の高さに合わせる
     position: 'relative',
     borderTopRightRadius: BorderRadius.lg,
     borderBottomRightRadius: BorderRadius.lg,

@@ -389,6 +389,29 @@ export default function ComposeScreen() {
   const handleSkipToForm = React.useCallback(() => {
     router.push('/compose/edit');
   }, [router]);
+
+  // チャットをリセット
+  const handleResetChat = React.useCallback(() => {
+    Alert.alert(
+      'チャットをリセット',
+      '会話をリセットしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'リセット',
+          style: 'destructive',
+          onPress: () => {
+            setMessages([{ id: 'ai-hello', role: 'ai', text: generateGreeting() }]);
+            setHasStarted(false);
+            setSuggestions([]);
+            setSelectedQuickPrompt(null);
+            setExampleText(null);
+            setIntroStatus('idle');
+          },
+        },
+      ]
+    );
+  }, []);
   
   // 下書き一覧を読み込み
   const loadDrafts = React.useCallback(async () => {
@@ -534,10 +557,10 @@ export default function ComposeScreen() {
         title="レシピを考える"
         leftAction={
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleResetChat}
             style={styles.appBarButton}
           >
-            <IconSymbol name="xmark" size={20} color={colors.text} />
+            <IconSymbol name="arrow.counterclockwise" size={20} color={colors.text} />
           </Pressable>
         }
         rightAction={
@@ -630,26 +653,26 @@ export default function ComposeScreen() {
                         </View>
                       )}
                       {introStatus === 'ready' && exampleText && (
-                        <Pressable
-                          onPress={() => handleTapExample(exampleText)}
-                          disabled={isThinking || isGeneratingDraft}
-                          style={[
-                            styles.exampleCard,
-                            {
-                              borderColor: colors.primary,
-                              backgroundColor: colors.surface,
-                            },
-                          ]}
-                        >
-                          <View style={styles.exampleCardHeader}>
-                            <Text style={[styles.exampleLabel, { color: colors.primary }]}>
-                              タップして送信 →
-                            </Text>
-                          </View>
-                          <Text style={[styles.exampleText, { color: colors.text }]}>
-                            {exampleText}
+                        <View style={styles.exampleWrapper}>
+                          <Text style={[styles.exampleLabel, { color: colors.primary }]}>
+                            タップして送信 →
                           </Text>
-                        </Pressable>
+                          <Pressable
+                            onPress={() => handleTapExample(exampleText)}
+                            disabled={isThinking || isGeneratingDraft}
+                            style={[
+                              styles.exampleCard,
+                              {
+                                borderColor: colors.primary,
+                                backgroundColor: colors.surface,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.exampleText, { color: colors.text }]}>
+                              {exampleText}
+                            </Text>
+                          </Pressable>
+                        </View>
                       )}
                     </View>
                   )}
@@ -862,6 +885,15 @@ const styles = StyleSheet.create({
   exampleLoadingText: {
     fontSize: 13,
   },
+  exampleWrapper: {
+    gap: Spacing.xs,
+  },
+  exampleLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'right',
+    marginBottom: Spacing.xs,
+  },
   exampleCard: {
     padding: Spacing.md,
     borderRadius: BorderRadius.xl,
@@ -872,14 +904,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-  },
-  exampleCardHeader: {
-    marginBottom: Spacing.sm,
-  },
-  exampleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'right',
   },
   exampleText: {
     fontSize: 15,

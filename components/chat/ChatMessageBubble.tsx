@@ -121,17 +121,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bubble: {
-    maxWidth: '80%',
     paddingVertical: Spacing.sm + 2,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.xl,
+    flexShrink: 1,
   },
   aiBubble: {
     borderWidth: 1,
     borderTopLeftRadius: BorderRadius.sm,
+    maxWidth: '85%',
+    alignSelf: 'flex-start',
   },
   userBubble: {
     borderTopRightRadius: BorderRadius.sm,
+    maxWidth: '75%',
+    alignSelf: 'flex-end',
   },
   attachments: {
     marginBottom: Spacing.sm,

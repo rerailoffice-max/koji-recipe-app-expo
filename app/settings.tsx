@@ -18,13 +18,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase, API_BASE_URL } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFontSize, type FontSizeKey } from '@/hooks/use-font-size';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { User } from '@supabase/supabase-js';
 
-type FontSize = 'small' | 'medium' | 'large';
-
-const FONT_SIZE_OPTIONS: { value: FontSize; label: string }[] = [
+const FONT_SIZE_OPTIONS: { value: FontSizeKey; label: string }[] = [
   { value: 'small', label: '小' },
   { value: 'medium', label: '中' },
   { value: 'large', label: '大' },
@@ -36,6 +35,10 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  // フォントサイズのコンテキストを使用
+  const { fontSize, setFontSize } = useFontSize();
+  const [localFontSize, setLocalFontSize] = React.useState<FontSizeKey>(fontSize);
+
   const [user, setUser] = React.useState<User | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -44,7 +47,6 @@ export default function SettingsScreen() {
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
   const [displayName, setDisplayName] = React.useState('');
   const [bio, setBio] = React.useState('');
-  const [fontSize, setFontSize] = React.useState<FontSize>('medium');
 
   // 初期データ読み込み
   React.useEffect(() => {
@@ -78,6 +80,11 @@ export default function SettingsScreen() {
 
     loadProfile();
   }, [router]);
+
+  // コンテキストのフォントサイズが変更されたらローカル状態も更新
+  React.useEffect(() => {
+    setLocalFontSize(fontSize);
+  }, [fontSize]);
 
   // アバター画像を選択
   const handlePickAvatar = async () => {
@@ -141,27 +148,33 @@ export default function SettingsScreen() {
     }
   };
 
-  // プロフィール保存
+  // プロフィール保存（フォントサイズも含む）
   const handleSaveProfile = async () => {
-    if (!user) return;
-
     try {
       setIsSaving(true);
 
-      const { error } = await supabase
-        .from('users')
-        .update({
-          display_name: displayName.trim() || null,
-          bio: bio.trim() || null,
-        })
-        .eq('id', user.id);
+      // フォントサイズを保存
+      if (localFontSize !== fontSize) {
+        await setFontSize(localFontSize);
+      }
 
-      if (error) throw error;
+      // ユーザーがログインしている場合はプロフィールも更新
+      if (user) {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            display_name: displayName.trim() || null,
+            bio: bio.trim() || null,
+          })
+          .eq('id', user.id);
 
-      Alert.alert('完了', 'プロフィールを更新しました。');
+        if (error) throw error;
+      }
+
+      Alert.alert('完了', '設定を保存しました。');
     } catch (e) {
       console.error('Save profile error:', e);
-      Alert.alert('エラー', 'プロフィールの保存に失敗しました。');
+      Alert.alert('エラー', '設定の保存に失敗しました。');
     } finally {
       setIsSaving(false);
     }
@@ -346,12 +359,12 @@ export default function SettingsScreen() {
             {FONT_SIZE_OPTIONS.map((option) => (
               <Pressable
                 key={option.value}
-                onPress={() => setFontSize(option.value)}
+                onPress={() => setLocalFontSize(option.value)}
                 style={[
                   styles.fontSizeOption,
                   {
-                    backgroundColor: fontSize === option.value ? colors.primary : colors.surface,
-                    borderColor: fontSize === option.value ? colors.primary : colors.border,
+                    backgroundColor: localFontSize === option.value ? colors.primary : colors.surface,
+                    borderColor: localFontSize === option.value ? colors.primary : colors.border,
                   },
                 ]}
               >
@@ -359,7 +372,7 @@ export default function SettingsScreen() {
                   style={[
                     styles.fontSizeOptionText,
                     {
-                      color: fontSize === option.value ? colors.primaryForeground : colors.text,
+                      color: localFontSize === option.value ? colors.primaryForeground : colors.text,
                     },
                   ]}
                 >

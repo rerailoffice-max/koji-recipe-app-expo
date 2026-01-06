@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFontSize, scaledFontSize } from '@/hooks/use-font-size';
 
 export interface ChatAttachment {
   kind: 'image';
@@ -26,6 +27,7 @@ export function ChatMessageBubble({
 }: ChatMessageBubbleProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { fontScale } = useFontSize();
   const isAi = role === 'ai';
 
   return (
@@ -74,6 +76,7 @@ export function ChatMessageBubble({
         <Text
           style={[
             styles.text,
+            { fontSize: scaledFontSize(15, fontScale), lineHeight: scaledFontSize(22, fontScale) },
             isAi
               ? { color: colors.text }
               : { color: colors.primaryForeground },

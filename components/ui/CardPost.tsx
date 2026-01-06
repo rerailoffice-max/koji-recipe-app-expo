@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFontSize, scaledFontSize } from '@/hooks/use-font-size';
 import { ChipTag } from './ChipTag';
 import { IconSymbol } from './icon-symbol';
 
@@ -55,6 +56,7 @@ export function CardPost({
 }: CardPostProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { fontScale } = useFontSize();
 
   // 材料名を最大3つ表示
   const ingredientNames = React.useMemo(() => {
@@ -82,13 +84,13 @@ export function CardPost({
         {/* 左側: 情報 */}
         <View style={styles.info}>
           {/* タイトル */}
-          <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+          <Text style={[styles.title, { color: colors.text, fontSize: scaledFontSize(16, fontScale) }]} numberOfLines={2}>
             {title}
           </Text>
 
           {/* 材料 */}
           {ingredientNames.length > 0 && (
-            <Text style={[styles.ingredients, { color: colors.mutedForeground }]} numberOfLines={1}>
+            <Text style={[styles.ingredients, { color: colors.mutedForeground, fontSize: scaledFontSize(13, fontScale) }]} numberOfLines={1}>
               {ingredientNames.join('、')}…
             </Text>
           )}
@@ -113,7 +115,7 @@ export function CardPost({
                   </Text>
                 )}
               </View>
-              <Text style={[styles.authorName, { color: colors.mutedForeground }]} numberOfLines={1}>
+              <Text style={[styles.authorName, { color: colors.mutedForeground, fontSize: scaledFontSize(13, fontScale) }]} numberOfLines={1}>
                 {authorName}
               </Text>
             </View>

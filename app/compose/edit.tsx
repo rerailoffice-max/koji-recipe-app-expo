@@ -101,26 +101,43 @@ export default function RecipeEditScreen() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSavingDraft, setIsSavingDraft] = React.useState(false);
   const [draftId, setDraftId] = React.useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = React.useState(false);
 
-  // パラメータからフォームデータを設定
+  // パラメータからフォームデータを設定（params変更時に実行）
   React.useEffect(() => {
-    if (isInitialized) return; // 既に初期化済みの場合はスキップ
+    // パラメータが存在するかチェック
+    const titleParam = params.title;
+    const ingredientsParam = params.ingredients;
+    const stepsParam = params.steps;
+    const draftIdParam = params.draftId;
     
-    const hasParams = params.title || params.ingredients || params.steps;
+    // デバッグログ
+    console.log('[RecipeEdit] params received:', {
+      title: titleParam,
+      ingredients: ingredientsParam?.substring?.(0, 50) || ingredientsParam,
+      steps: stepsParam?.substring?.(0, 50) || stepsParam,
+      draftId: draftIdParam,
+    });
     
-    if (hasParams || params.draftId) {
+    const hasParams = titleParam || ingredientsParam || stepsParam;
+    
+    if (hasParams) {
       const initialIngredients = safeJsonParse<Ingredient[]>(
-        params.ingredients,
+        ingredientsParam,
         [{ name: '', amount: '' }]
       );
       const initialSteps = safeJsonParse<Step[]>(
-        params.steps,
+        stepsParam,
         [{ order: 1, description: '' }]
       );
 
+      console.log('[RecipeEdit] Setting form data:', {
+        title: titleParam,
+        ingredientsCount: initialIngredients.length,
+        stepsCount: initialSteps.length,
+      });
+
       setFormData({
-        title: params.title || '',
+        title: titleParam || '',
         description: params.description || '',
         koji_type: params.koji_type || '中華麹',
         difficulty: params.difficulty || 'かんたん',
@@ -128,14 +145,12 @@ export default function RecipeEditScreen() {
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: null,
       });
-
-      if (params.draftId) {
-        setDraftId(params.draftId);
-      }
-      
-      setIsInitialized(true);
     }
-  }, [params, isInitialized]);
+
+    if (draftIdParam) {
+      setDraftId(draftIdParam);
+    }
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 

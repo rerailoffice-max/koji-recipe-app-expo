@@ -73,68 +73,85 @@ export default function MyRecipesScreen() {
     if (refresh) setIsRefreshing(true);
 
     try {
+      console.log('[Profile] Fetching recipes for user:', user.id);
+
       // 保存したレシピ（お気に入り）
-      const { data: likes } = await supabase
+      const { data: likes, error: likesError } = await supabase
         .from('likes')
-        .select('post_id, posts(*)')
+        .select(`
+          post_id,
+          posts (
+            id,
+            title,
+            image_url,
+            description,
+            koji_type
+          )
+        `)
         .eq('user_id', user.id)
         .limit(10);
 
-      if (likes) {
-        setSavedRecipes(
-          likes
-            .filter((l: any) => l.posts)
-            .map((l: any) => ({
-              id: l.posts.id,
-              title: l.posts.title,
-              image: l.posts.image_url,
-              authorName: null,
-            }))
-        );
+      console.log('[Profile] Likes result:', { likes, error: likesError });
+
+      if (likes && !likesError) {
+        const savedList = likes
+          .filter((l: any) => l.posts)
+          .map((l: any) => ({
+            id: l.posts.id,
+            title: l.posts.title,
+            image: l.posts.image_url,
+            authorName: null,
+          }));
+        console.log('[Profile] Saved recipes:', savedList.length);
+        setSavedRecipes(savedList);
       }
 
       // 自分のレシピ（公開済み）
-      const { data: myPosts } = await supabase
+      const { data: myPosts, error: myPostsError } = await supabase
         .from('posts')
-        .select('*')
+        .select('id, title, image_url, description, koji_type')
         .eq('user_id', user.id)
         .eq('is_public', true)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (myPosts) {
-        setMyRecipes(
-          myPosts.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            image: p.image_url,
-            authorName: null,
-          }))
-        );
+      console.log('[Profile] My posts result:', { myPosts, error: myPostsError });
+
+      if (myPosts && !myPostsError) {
+        const myList = myPosts.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          image: p.image_url,
+          authorName: null,
+        }));
+        console.log('[Profile] My recipes:', myList.length);
+        setMyRecipes(myList);
       }
 
       // 下書き（非公開）
-      const { data: drafts } = await supabase
+      const { data: drafts, error: draftsError } = await supabase
         .from('posts')
-        .select('*')
+        .select('id, title, image_url, description, koji_type')
         .eq('user_id', user.id)
         .eq('is_public', false)
         .order('updated_at', { ascending: false })
         .limit(10);
 
-      if (drafts) {
-        setDraftRecipes(
-          drafts.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            image: p.image_url,
-            authorName: null,
-            isDraft: true,
-          }))
-        );
+      console.log('[Profile] Drafts result:', { drafts, error: draftsError });
+
+      if (drafts && !draftsError) {
+        const draftList = drafts.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          image: p.image_url,
+          authorName: null,
+          isDraft: true,
+        }));
+        console.log('[Profile] Draft recipes:', draftList.length);
+        setDraftRecipes(draftList);
       }
     } catch (e) {
-      console.error('Fetch recipes error:', e);
+      console.error('[Profile] Fetch recipes error:', e);
     } finally {
       setIsRefreshing(false);
     }

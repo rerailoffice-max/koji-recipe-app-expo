@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 環境変数から取得（app.json の extra に設定するか、EAS Build時に設定）
 // Next.js版と同じSupabaseプロジェクトを使用
@@ -18,7 +19,7 @@ const noopStorage = {
   removeItem: (key: string) => { delete memoryStorage[key]; },
 };
 
-// クライアント用のlocalStorageラッパー
+// クライアント用のlocalStorageラッパー（Web用）
 const webStorage = {
   getItem: (key: string) => {
     try {
@@ -51,9 +52,8 @@ const getStorage = () => {
   if (Platform.OS === 'web') {
     return webStorage;
   }
-  // ネイティブ環境ではAsyncStorageを動的importする
-  // ただしビルド時に読み込まれないようにする
-  return webStorage; // Web PWAなのでlocalStorageで十分
+  // iOS/Android: AsyncStorage を使用
+  return AsyncStorage;
 };
 
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

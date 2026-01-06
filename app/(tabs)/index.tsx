@@ -143,16 +143,47 @@ export default function HomeScreen() {
     });
   }, [posts, query, selectedKojis]);
 
-  // 投稿を取得
+  // 投稿を取得（Supabaseから直接）
   const fetchPosts = React.useCallback(async (refresh = false) => {
     if (refresh) setIsRefreshing(true);
     else setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/posts?tab=${activeTab}&limit=20`);
-      const json = await res.json().catch(() => null);
-      if (res.ok && Array.isArray(json?.posts)) {
-        setPosts(json.posts);
+      // Supabaseから直接投稿を取得（同じプロジェクトを使用）
+      let query = supabase
+        .from('posts')
+        .select(`
+          id,
+          title,
+          description,
+          image_url,
+          koji_type,
+          difficulty,
+          ingredients,
+          view_count,
+          created_at,
+          user:users(id, display_name, avatar_url, email)
+        `)
+        .eq('is_public', true);
+      
+      // ソート順を設定
+      if (activeTab === 'popular') {
+        query = query.order('view_count', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      const { data, error } = await query.limit(20);
+      
+      if (error) {
+        console.error('Supabase fetch error:', error);
+      } else if (data) {
+        // userフィールドを正しい形式に変換
+        const formattedPosts = data.map((post: any) => ({
+          ...post,
+          user: Array.isArray(post.user) ? post.user[0] : post.user,
+        }));
+        setPosts(formattedPosts);
       }
     } catch (e) {
       console.error('Fetch posts error:', e);
@@ -162,14 +193,38 @@ export default function HomeScreen() {
     }
   }, [activeTab]);
 
-  // 週間おすすめを取得
+  // 週間おすすめを取得（Supabaseから直接）
   const fetchWeeklyRecipes = React.useCallback(async () => {
     setIsLoadingWeekly(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/weekly-recipes`);
-      const json = await res.json().catch(() => null);
-      if (res.ok && Array.isArray(json?.recipes)) {
-        setWeeklyRecipes(json.recipes);
+      // 最近7日間の人気投稿を取得
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select('id, title, image_url, koji_type')
+        .eq('is_public', true)
+        .gte('created_at', oneWeekAgo.toISOString())
+        .order('view_count', { ascending: false })
+        .limit(7);
+      
+      if (error) {
+        console.error('Supabase weekly fetch error:', error);
+      } else if (data && data.length > 0) {
+        // 日付のラベルを付与
+        const days = ['日', '月', '火', '水', '木', '金', '土'];
+        const recipes: WeeklyRecipe[] = data.map((post, index) => {
+          const date = new Date();
+          date.setDate(date.getDate() - index);
+          return {
+            id: post.id,
+            title: post.title,
+            imageUrl: post.image_url,
+            dayLabel: days[date.getDay()],
+          };
+        });
+        setWeeklyRecipes(recipes);
       }
     } catch (e) {
       console.error('Fetch weekly recipes error:', e);

@@ -266,6 +266,11 @@ export default function ComposeScreen() {
   const handleSend = React.useCallback(async () => {
     const text = input.trim();
     const attachment = pendingAttachment;
+    
+    // 送信前に即座に入力をクリア（UIの即時反映）
+    setInput('');
+    setPendingAttachment(null);
+    
     await handleSendInternal(
       text || (attachment ? 'この写真で料理を考えてください。' : ''),
       false,

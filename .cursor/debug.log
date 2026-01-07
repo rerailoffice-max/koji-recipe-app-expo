@@ -1,0 +1,12 @@
+{"location":"compose.tsx:useEffect-preGen","message":"useEffect triggered","data":{"preGeneratedMenus":false,"inFlight":false},"timestamp":1767804762903,"sessionId":"debug-session","hypothesisId":"E"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API call starting","data":{"url":"https://koji-recipe-app-c72x.vercel.app/api/quick-menu-idea"},"timestamp":1767804762907,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API error caught","data":{"error":"TypeError: Failed to fetch"},"timestamp":1767804763857,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:useEffect-preGen","message":"useEffect triggered","data":{"preGeneratedMenus":false,"inFlight":false},"timestamp":1767804775897,"sessionId":"debug-session","hypothesisId":"E"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API call starting","data":{"url":"https://koji-recipe-app-c72x.vercel.app/api/quick-menu-idea"},"timestamp":1767804775898,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:useEffect-updateStatus","message":"useEffect for status update","data":{"selectedQuickPrompt":null,"hasPreGeneratedMenus":false},"timestamp":1767804775898,"sessionId":"debug-session","hypothesisId":"D"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API error caught","data":{"error":"TypeError: Failed to fetch"},"timestamp":1767804776301,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:useEffect-preGen","message":"useEffect triggered","data":{"preGeneratedMenus":false,"inFlight":false},"timestamp":1767804796909,"sessionId":"debug-session","hypothesisId":"E"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API call starting","data":{"url":"https://koji-recipe-app-c72x.vercel.app/api/quick-menu-idea"},"timestamp":1767804796910,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:useEffect-updateStatus","message":"useEffect for status update","data":{"selectedQuickPrompt":null,"hasPreGeneratedMenus":false},"timestamp":1767804796910,"sessionId":"debug-session","hypothesisId":"D"}
+{"location":"compose.tsx:loadAllMenuIdeas","message":"API error caught","data":{"error":"TypeError: Failed to fetch"},"timestamp":1767804797954,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"compose.tsx:useEffect-updateStatus","message":"useEffect for status update","data":{"selectedQuickPrompt":null,"hasPreGeneratedMenus":false},"timestamp":1767804917905,"sessionId":"debug-session","hypothesisId":"D"}

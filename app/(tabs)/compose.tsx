@@ -57,11 +57,24 @@ const QUICK_PROMPTS = [
   { id: '汁物', label: '汁物' },
 ];
 
-// 初期挨拶を生成（季節の食材付き）
+// 初期挨拶を生成（時間帯別・季節の食材付き）
 function generateGreeting(): string {
-  const month = new Date().getMonth() + 1;
-  let seasonalIngredients = '';
+  const now = new Date();
+  const hour = now.getHours();
+  const month = now.getMonth() + 1;
   
+  // 時間帯別の挨拶
+  let greeting = '';
+  if (hour >= 6 && hour < 11) {
+    greeting = 'おはようございます！';
+  } else if (hour >= 11 && hour < 17) {
+    greeting = 'こんにちは！';
+  } else {
+    greeting = 'こんばんは！';
+  }
+  
+  // 季節の食材
+  let seasonalIngredients = '';
   if (month >= 1 && month <= 2) {
     seasonalIngredients = 'れんこん・カキ・里芋';
   } else if (month >= 3 && month <= 5) {
@@ -74,7 +87,7 @@ function generateGreeting(): string {
     seasonalIngredients = '白菜・大根・ブリ';
   }
 
-  return `おはよう！\nこうじのコウちゃんだよ！\n\n${month}月の旬: ${seasonalIngredients} とかがおすすめ😊\n\n今日はどんな料理を作りたい？\n下の「例」や「使うこうじ」を選んでね！`;
+  return `${greeting}\nGOCHISOシェフです！\n\n${month}月の旬: ${seasonalIngredients}\n\n今日はどんなメニューを作りたいですか？\n下の「候補」から選ぶか、チャットで教えてね！`;
 }
 
 // 事前生成されたメニュー案の型
@@ -125,11 +138,17 @@ export default function ComposeScreen() {
   
   // ページ読み込み時に全カテゴリのメニュー案を事前生成
   React.useEffect(() => {
+    // #region agent log
+    console.log('[DEBUG-E] useEffect triggered', {preGeneratedMenus:preGeneratedMenus!==null,inFlight:preGenerateMenusInFlightRef.current});
+    // #endregion
     if (preGeneratedMenus !== null) return; // 既に生成済み
     if (preGenerateMenusInFlightRef.current) return;
 
     const loadAllMenuIdeas = async () => {
       preGenerateMenusInFlightRef.current = true;
+      // #region agent log
+      console.log('[DEBUG-A] API call starting', {url:`${API_BASE_URL}/api/quick-menu-idea`});
+      // #endregion
       try {
         const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
           method: 'POST',
@@ -137,12 +156,27 @@ export default function ComposeScreen() {
           body: JSON.stringify({ allCategories: true }),
         });
         const json = await res.json().catch(() => null);
+        // #region agent log
+        console.log('[DEBUG-B] API response received', {ok:res.ok,success:json?.success,hasResults:!!json?.results,resultsKeys:json?.results?Object.keys(json.results):null});
+        // #endregion
         
         if (res.ok && json?.success && json?.results) {
           setPreGeneratedMenus((prev) => (prev ? prev : json.results));
+          // #region agent log
+          console.log('[DEBUG-C] setPreGeneratedMenus called', {resultsKeys:Object.keys(json.results)});
+          // #endregion
+        } else {
+          // API失敗時はエラー状態を設定
+          console.warn('API failed to generate menu ideas');
+          setIntroStatus('error');
         }
       } catch (e) {
+        // #region agent log
+        console.log('[DEBUG-A] API error caught', {error:String(e)});
+        // #endregion
         console.error('Failed to pre-generate menu ideas:', e);
+        // エラー時はエラー状態を設定
+        setIntroStatus('error');
       } finally {
         preGenerateMenusInFlightRef.current = false;
       }
@@ -153,10 +187,16 @@ export default function ComposeScreen() {
   
   // 事前生成が完了したら、選択中のカテゴリの内容で更新
   React.useEffect(() => {
+    // #region agent log
+    console.log('[DEBUG-D] useEffect for status update', {selectedQuickPrompt,hasPreGeneratedMenus:preGeneratedMenus!==null});
+    // #endregion
     if (!selectedQuickPrompt) return;
     if (!preGeneratedMenus) return;
     
     const preGenerated = preGeneratedMenus[selectedQuickPrompt];
+    // #region agent log
+    console.log('[DEBUG-C] checking preGenerated', {selectedQuickPrompt,hasPreGenerated:!!preGenerated,hasMenuIdea:!!preGenerated?.menuIdea});
+    // #endregion
     if (preGenerated?.menuIdea) {
       setExampleText(preGenerated.menuIdea);
       setIntroStatus('ready');
@@ -223,13 +263,41 @@ export default function ComposeScreen() {
         isQuickRecipeMode,
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // #region agent log
+      console.log('[DEBUG-CHAT-A] Calling /api/chat', {apiUrl:`${API_BASE_URL}/api/chat`,payloadKeys:Object.keys(payload),messagesCount:payload.messages.length,isQuickRecipeMode:payload.isQuickRecipeMode});
+      // #endregion
 
-      const json = await res.json().catch(() => null);
+      let res: Response;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (fetchErr: any) {
+        // #region agent log
+        console.log('[DEBUG-CHAT-B] Fetch failed (network/CORS)', {error:String(fetchErr),errorName:fetchErr?.name});
+        // #endregion
+        throw fetchErr;
+      }
+
+      // #region agent log
+      console.log('[DEBUG-CHAT-C] Fetch response received', {status:res.status,ok:res.ok,statusText:res.statusText});
+      // #endregion
+
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch (parseErr: any) {
+        // #region agent log
+        console.log('[DEBUG-CHAT-D] JSON parse failed', {error:String(parseErr)});
+        // #endregion
+      }
+
+      // #region agent log
+      console.log('[DEBUG-CHAT-E] Response JSON parsed', {hasJson:!!json,success:json?.success,hasReply:typeof json?.reply==='string',replyType:typeof json?.reply,errorField:json?.error,suggestions:json?.suggestions});
+      // #endregion
+
       const aiText =
         res.ok && json?.success && typeof json?.reply === 'string'
           ? json.reply
@@ -245,6 +313,10 @@ export default function ComposeScreen() {
               text: String(s.text),
             }))
         : [];
+
+      // #region agent log
+      console.log('[DEBUG-SUG-H] Setting suggestions', {suggestionsCount:newSuggestions.length,suggestionsLabels:newSuggestions.map((s: any)=>s.label),rawSuggestions:json?.suggestions?.slice(0,3)});
+      // #endregion
 
       setMessages((prev) =>
         prev.map((m) => (m.id === pendingAiId ? { ...m, text: aiText } : m))
@@ -281,6 +353,9 @@ export default function ComposeScreen() {
   // クイックプロンプト経由での送信（isQuickRecipeMode: true）
   const handleSendWithQuickRecipeMode = React.useCallback(
     async (text: string) => {
+      // #region agent log
+      console.log('[DEBUG-SEND-G] handleSendWithQuickRecipeMode called', {textLen:text.length,isThinking,isGeneratingDraft,willReturn:!text.trim()||isThinking||isGeneratingDraft});
+      // #endregion
       if (!text.trim() || isThinking || isGeneratingDraft) return;
       await handleSendInternal(text, true, undefined);
     },
@@ -497,6 +572,9 @@ export default function ComposeScreen() {
 
   // クイックプロンプト選択（事前生成済みメニューを表示）
   const handleSelectQuickPrompt = React.useCallback((promptId: string) => {
+    // #region agent log
+    console.log('[DEBUG-C] chip tapped', {promptId,hasPreGeneratedMenus:preGeneratedMenus!==null,preGeneratedMenusKeys:preGeneratedMenus?Object.keys(preGeneratedMenus):null});
+    // #endregion
     setSelectedQuickPrompt(promptId);
     
     // 事前生成済みメニューがあれば即座に表示
@@ -507,15 +585,48 @@ export default function ComposeScreen() {
       return;
     }
     
-    // まだ生成中の場合はローディング表示
+    // APIがまだ完了していない場合はローディング表示
     setExampleText(null);
     setIntroStatus('loading');
   }, [preGeneratedMenus]);
   
   // メニュー例をタップして即レシピモードで送信
   const handleTapExample = React.useCallback((text: string) => {
+    // #region agent log
+    console.log('[DEBUG-TAP-F] handleTapExample called', {text:text.slice(0,50),isThinking,isGeneratingDraft});
+    // #endregion
     handleSendWithQuickRecipeMode(text);
-  }, [handleSendWithQuickRecipeMode]);
+  }, [handleSendWithQuickRecipeMode, isThinking, isGeneratingDraft]);
+
+  // メニュー生成を再試行
+  const handleRetryMenuGeneration = React.useCallback(async () => {
+    setIntroStatus('loading');
+    setPreGeneratedMenus(null);
+    preGenerateMenusInFlightRef.current = false;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allCategories: true }),
+      });
+      const json = await res.json().catch(() => null);
+      
+      if (res.ok && json?.success && json?.results) {
+        setPreGeneratedMenus(json.results);
+        // 選択中のカテゴリがあれば即座に表示
+        if (selectedQuickPrompt && json.results[selectedQuickPrompt]?.menuIdea) {
+          setExampleText(json.results[selectedQuickPrompt].menuIdea);
+          setIntroStatus('ready');
+        }
+      } else {
+        setIntroStatus('error');
+      }
+    } catch (e) {
+      console.error('Retry failed:', e);
+      setIntroStatus('error');
+    }
+  }, [selectedQuickPrompt]);
 
   // 画像ピッカー
   const { takePhoto, pickFromLibrary } = useImagePicker();
@@ -658,6 +769,21 @@ export default function ComposeScreen() {
                           <Text style={[styles.exampleLoadingText, { color: colors.mutedForeground }]}>
                             メニュー例を生成中...
                           </Text>
+                        </View>
+                      )}
+                      {introStatus === 'error' && (
+                        <View style={styles.exampleLoading}>
+                          <Text style={[styles.exampleLoadingText, { color: colors.mutedForeground }]}>
+                            生成に失敗しました
+                          </Text>
+                          <Pressable
+                            onPress={handleRetryMenuGeneration}
+                            style={[styles.retryButton, { borderColor: colors.primary }]}
+                          >
+                            <Text style={[styles.retryButtonText, { color: colors.primary }]}>
+                              再試行
+                            </Text>
+                          </Pressable>
                         </View>
                       )}
                       {introStatus === 'ready' && exampleText && (
@@ -892,6 +1018,17 @@ const styles = StyleSheet.create({
   },
   exampleLoadingText: {
     fontSize: 13,
+  },
+  retryButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    marginLeft: Spacing.sm,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   exampleWrapper: {
     gap: Spacing.xs,

@@ -90,8 +90,9 @@ function generateGreeting(): string {
   return `${greeting}\nGOCHISOシェフです！\n\n${month}月の旬: ${seasonalIngredients}\n\n今日はどんなメニューを作りたいですか？\n下の「候補」から選ぶか、チャットで教えてね！`;
 }
 
-// 事前生成されたメニュー案の型
-type PreGeneratedMenus = Record<string, { menuIdea: string; kojiType: string }>;
+// 事前生成されたメニュー案の型（各カテゴリで3つの麹タイプのメニュー案）
+type MenuIdea = { menuIdea: string; kojiType: string };
+type PreGeneratedMenus = Record<string, { menuIdeas: MenuIdea[] }>;
 
 export default function ComposeScreen() {
   const colorScheme = useColorScheme();
@@ -109,8 +110,8 @@ export default function ComposeScreen() {
   const [preGeneratedMenus, setPreGeneratedMenus] = React.useState<PreGeneratedMenus | null>(null);
   const preGenerateMenusInFlightRef = React.useRef(false);
   
-  // メニュー例テキスト（クイックプロンプト選択時に表示）
-  const [exampleText, setExampleText] = React.useState<string | null>(null);
+  // メニュー例（クイックプロンプト選択時に表示する3つの候補）
+  const [exampleMenus, setExampleMenus] = React.useState<MenuIdea[] | null>(null);
   const [introStatus, setIntroStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   
   // 下書き生成中フラグ
@@ -195,10 +196,10 @@ export default function ComposeScreen() {
     
     const preGenerated = preGeneratedMenus[selectedQuickPrompt];
     // #region agent log
-    console.log('[DEBUG-C] checking preGenerated', {selectedQuickPrompt,hasPreGenerated:!!preGenerated,hasMenuIdea:!!preGenerated?.menuIdea});
+    console.log('[DEBUG-C] checking preGenerated', {selectedQuickPrompt,hasPreGenerated:!!preGenerated,hasMenuIdeas:!!preGenerated?.menuIdeas?.length});
     // #endregion
-    if (preGenerated?.menuIdea) {
-      setExampleText(preGenerated.menuIdea);
+    if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
+      setExampleMenus(preGenerated.menuIdeas);
       setIntroStatus('ready');
     }
   }, [preGeneratedMenus, selectedQuickPrompt]);
@@ -488,7 +489,7 @@ export default function ComposeScreen() {
             setHasStarted(false);
             setSuggestions([]);
             setSelectedQuickPrompt(null);
-            setExampleText(null);
+            setExampleMenus(null);
             setIntroStatus('idle');
           },
         },
@@ -579,14 +580,14 @@ export default function ComposeScreen() {
     
     // 事前生成済みメニューがあれば即座に表示
     const preGenerated = preGeneratedMenus?.[promptId];
-    if (preGenerated?.menuIdea) {
-      setExampleText(preGenerated.menuIdea);
+    if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
+      setExampleMenus(preGenerated.menuIdeas);
       setIntroStatus('ready');
       return;
     }
     
     // APIがまだ完了していない場合はローディング表示
-    setExampleText(null);
+    setExampleMenus(null);
     setIntroStatus('loading');
   }, [preGeneratedMenus]);
   
@@ -615,8 +616,9 @@ export default function ComposeScreen() {
       if (res.ok && json?.success && json?.results) {
         setPreGeneratedMenus(json.results);
         // 選択中のカテゴリがあれば即座に表示
-        if (selectedQuickPrompt && json.results[selectedQuickPrompt]?.menuIdea) {
-          setExampleText(json.results[selectedQuickPrompt].menuIdea);
+        const preGenerated = json.results[selectedQuickPrompt];
+        if (selectedQuickPrompt && preGenerated?.menuIdeas?.length > 0) {
+          setExampleMenus(preGenerated.menuIdeas);
           setIntroStatus('ready');
         }
       } else {
@@ -786,26 +788,40 @@ export default function ComposeScreen() {
                           </Pressable>
                         </View>
                       )}
-                      {introStatus === 'ready' && exampleText && (
+                      {introStatus === 'ready' && exampleMenus && exampleMenus.length > 0 && (
                         <View style={styles.exampleWrapper}>
                           <Text style={[styles.exampleLabel, { color: colors.primary }]}>
                             タップして送信 →
                           </Text>
-                          <Pressable
-                            onPress={() => handleTapExample(exampleText)}
-                            disabled={isThinking || isGeneratingDraft}
-                            style={[
-                              styles.exampleCard,
-                              {
-                                borderColor: colors.primary,
-                                backgroundColor: colors.surface,
-                              },
-                            ]}
-                          >
-                            <Text style={[styles.exampleText, { color: colors.text }]}>
-                              {exampleText}
-                            </Text>
-                          </Pressable>
+                          {exampleMenus.map((menu, index) => {
+                            // 麹タイプに応じた絵文字とラベル
+                            const kojiLabel = menu.kojiType.includes('旨塩') ? '🧂 旨塩風'
+                              : menu.kojiType.includes('中華') ? '🍜 中華風'
+                              : '🍲 コンソメ風';
+                            
+                            return (
+                              <View key={index} style={styles.exampleCardWrapper}>
+                                <Text style={[styles.kojiLabel, { color: colors.mutedForeground }]}>
+                                  {kojiLabel}
+                                </Text>
+                                <Pressable
+                                  onPress={() => handleTapExample(menu.menuIdea)}
+                                  disabled={isThinking || isGeneratingDraft}
+                                  style={[
+                                    styles.exampleCard,
+                                    {
+                                      borderColor: colors.primary,
+                                      backgroundColor: colors.surface,
+                                    },
+                                  ]}
+                                >
+                                  <Text style={[styles.exampleText, { color: colors.text }]}>
+                                    {menu.menuIdea}
+                                  </Text>
+                                </Pressable>
+                              </View>
+                            );
+                          })}
                         </View>
                       )}
                     </View>
@@ -1038,6 +1054,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
     marginBottom: Spacing.xs,
+  },
+  exampleCardWrapper: {
+    marginBottom: Spacing.md,
+  },
+  kojiLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+    marginLeft: Spacing.xs,
   },
   exampleCard: {
     padding: Spacing.md,

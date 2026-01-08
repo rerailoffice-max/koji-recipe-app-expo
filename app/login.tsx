@@ -227,7 +227,7 @@ export default function LoginScreen() {
       const trimmedEmail = email.trim();
 
       // #region agent log
-      console.log('[DBG] email auth via proxy', { runId, mode: isSignup ? 'signup' : 'login', emailLen: trimmedEmail.length });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:start',message:'H1:認証開始',data:{mode:isSignup?'signup':'login',emailLen:trimmedEmail.length,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H1'})}).catch(()=>{});
       // #endregion
 
       // Vercel API経由でSupabaseに認証（Supabase直接接続を回避）
@@ -236,7 +236,7 @@ export default function LoginScreen() {
         : `${API_BASE_URL}/api/auth/email-login`;
 
       // #region agent log
-      console.log('[DBG] calling proxy API', { runId, endpoint });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:beforeFetch',message:'H2:API呼び出し前',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H2'})}).catch(()=>{});
       // #endregion
 
       const res = await fetch(endpoint, {
@@ -246,13 +246,13 @@ export default function LoginScreen() {
       });
 
       // #region agent log
-      console.log('[DBG] proxy API raw response', { runId, status: res.status, statusText: res.statusText, ok: res.ok });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:afterFetch',message:'H2:API呼び出し後',data:{status:res.status,statusText:res.statusText,ok:res.ok},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H2'})}).catch(()=>{});
       // #endregion
 
       const text = await res.text();
 
       // #region agent log
-      console.log('[DBG] proxy API response text', { runId, textLength: text.length, textPreview: text.substring(0, 200) });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:responseText',message:'H3:レスポンステキスト',data:{textLength:text.length,textPreview:text.substring(0,300)},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H3'})}).catch(()=>{});
       // #endregion
 
       let json: any;
@@ -260,14 +260,14 @@ export default function LoginScreen() {
         json = JSON.parse(text);
       } catch (parseErr: any) {
         // #region agent log
-        console.log('[DBG] JSON parse failed', { runId, parseError: parseErr?.message, text: text.substring(0, 500) });
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:parseError',message:'H3:JSONパース失敗',data:{parseError:parseErr?.message,text:text.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H3'})}).catch(()=>{});
         // #endregion
         setErrorText('サーバーからの応答が正しくありません。');
         return;
       }
 
       // #region agent log
-      console.log('[DBG] proxy API response parsed', { runId, ok: json.success, status: res.status, hasSession: !!json.session });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:parsed',message:'H4:パース成功',data:{success:json.success,hasSession:!!json.session,error:json.error,debug:json.debug},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H4'})}).catch(()=>{});
       // #endregion
 
       if (!json.success) {
@@ -284,7 +284,7 @@ export default function LoginScreen() {
       // セッションをSupabase clientにセット
       if (json.session?.access_token && json.session?.refresh_token) {
         // #region agent log
-        console.log('[DBG] setting session to supabase client', { runId });
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:setSession',message:'H5:セッション設定開始',data:{hasAccessToken:!!json.session.access_token,hasRefreshToken:!!json.session.refresh_token},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H5'})}).catch(()=>{});
         // #endregion
 
         const { error: sessionError } = await supabase.auth.setSession({
@@ -294,7 +294,7 @@ export default function LoginScreen() {
 
         if (sessionError) {
           // #region agent log
-          console.log('[DBG] setSession error', { runId, error: sessionError.message });
+          fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:setSessionError',message:'H5:セッション設定失敗',data:{error:sessionError.message},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H5'})}).catch(()=>{});
           // #endregion
           setErrorText('セッションの設定に失敗しました。');
           return;
@@ -302,13 +302,13 @@ export default function LoginScreen() {
       }
 
       // #region agent log
-      console.log('[DBG] auth success, navigating to tabs', { runId });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:success',message:'認証成功',data:{navigatingTo:'/(tabs)'},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'SUCCESS'})}).catch(()=>{});
       // #endregion
 
       router.replace('/(tabs)');
     } catch (e: any) {
       // #region agent log
-      console.log('[DBG] proxy auth error', { error: e?.message ?? String(e) });
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:catchError',message:'H1:通信エラー',data:{error:e?.message??String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'error',hypothesisId:'H1'})}).catch(()=>{});
       // #endregion
       setErrorText(e?.message ? `通信に失敗しました: ${e.message}` : '通信に失敗しました。');
     } finally {

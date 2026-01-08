@@ -211,7 +211,9 @@ export default function LoginScreen() {
 
       router.replace('/(tabs)');
     } catch (e: any) {
-      setErrorText(e?.message ? `通信に失敗しました: ${e.message}` : '通信に失敗しました。');
+      const apiUrl = `${API_BASE_URL}/api/auth/${isSignup ? 'email-signup' : 'email-login'}`;
+      console.error('Login error:', e, 'API URL:', apiUrl);
+      setErrorText(e?.message ? `通信に失敗しました: ${e.message}\n接続先: ${apiUrl}` : '通信に失敗しました。');
     } finally {
       setIsLoading(false);
     }

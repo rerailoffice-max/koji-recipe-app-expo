@@ -25,7 +25,7 @@ import {
 } from '@/components/chat';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { supabase } from '@/lib/supabase';

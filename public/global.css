@@ -39,3 +39,12 @@ textarea {
   -webkit-user-select: auto;
   user-select: auto;
 }
+
+/* 入力欄のフォーカス時の青い枠を無効化 */
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none;
+  box-shadow: none;
+}

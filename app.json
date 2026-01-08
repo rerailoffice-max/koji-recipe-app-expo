@@ -59,7 +59,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiBaseUrl": "https://gochisokoji.com"
+      "apiBaseUrl": "https://api.gochisokoji.com"
     }
   }
 }

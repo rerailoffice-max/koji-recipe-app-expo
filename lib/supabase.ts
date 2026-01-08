@@ -65,6 +65,6 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
   },
 });
 
-// APIベースURL (gochisokoji.com)
-export const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://gochisokoji.com';
+// APIベースURL (api.gochisokoji.com)
+export const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://api.gochisokoji.com';
 

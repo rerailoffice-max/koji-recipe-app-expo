@@ -65,6 +65,6 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
   },
 });
 
-// APIベースURL (api.gochisokoji.com)
-export const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://api.gochisokoji.com';
+// APIベースURL - 直接指定（Constants.expoConfigがPWAで正しく読み込まれない問題の回避）
+export const API_BASE_URL = 'https://api.gochisokoji.com';
 

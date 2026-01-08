@@ -16,8 +16,8 @@ import {
   type Ingredient,
 } from '@/components/ui';
 
-// API Base URL
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://koji-recipe-app-c72x.vercel.app';
+// API Base URL - 直接指定（Constants.expoConfigがPWAで正しく読み込まれない問題の回避）
+const API_BASE_URL = 'https://api.gochisokoji.com';
 
 // 投稿データ型
 interface Post {

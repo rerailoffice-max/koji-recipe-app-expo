@@ -22,8 +22,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { supabase } from '@/lib/supabase';
 
-// API Base URL
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://koji-recipe-app-c72x.vercel.app';
+// API Base URL - 直接指定（Constants.expoConfigがPWAで正しく読み込まれない問題の回避）
+const API_BASE_URL = 'https://api.gochisokoji.com';
 
 // 型定義
 interface Ingredient {

@@ -22,7 +22,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
-  const LOG_URL = 'http://127.0.0.1:7244/ingest/a2183a97-7691-4013-9b1b-c6f1b8ad2750';
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -76,11 +75,6 @@ export default function LoginScreen() {
     setIsLoading(true);
     setErrorText('');
 
-    // #region agent log - H3: リダイレクトURL確認
-    console.log('[DEBUG H3] redirectUrl:', redirectUrl);
-    console.log('[DEBUG H3] Platform.OS:', Platform.OS);
-    // #endregion
-
     try {
       if (Platform.OS === 'web') {
         // Web: 直接OAuth
@@ -91,21 +85,12 @@ export default function LoginScreen() {
           },
         });
 
-        // #region agent log - H2: OAuth URL確認 (Web)
-        console.log('[DEBUG H2 Web] data:', JSON.stringify(data));
-        console.log('[DEBUG H2 Web] error:', error);
-        // #endregion
-
         if (error) throw error;
         if (data.url) {
           window.location.href = data.url;
         }
       } else {
         // Native (Expo Go): WebBrowserでOAuthを開く
-        // #region agent log - H2: OAuth呼び出し前
-        console.log('[DEBUG H2 Native] Calling signInWithOAuth with redirectUrl:', redirectUrl);
-        // #endregion
-
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -114,39 +99,12 @@ export default function LoginScreen() {
           },
         });
 
-        // #region agent log - H2: OAuth結果確認
-        console.log('[DEBUG H2 Native] OAuth data.url:', data?.url);
-        console.log('[DEBUG H2 Native] OAuth error:', error?.message);
-        // #endregion
-
         if (error) {
-          // #region agent log - H2: OAuthエラー詳細
           setErrorText(`Googleログインに失敗しました: ${error.message}`);
-          // #endregion
           throw error;
         }
 
         if (data.url) {
-          // #region agent log - H4: WebBrowser呼び出し前
-          console.log('[DEBUG H4] Opening WebBrowser with URL:', data.url.substring(0, 100) + '...');
-          // #endregion
-
-          // #region agent log
-          fetch(LOG_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: 'debug-session',
-              runId: `oauth-native-${Date.now()}`,
-              hypothesisId: 'H4_open',
-              location: 'app/login.tsx:handleGoogleLogin',
-              message: 'openAuthSessionAsync start',
-              data: { redirectUrl, urlHost: (() => { try { return new URL(data.url).host; } catch { return null; } })() },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-
           // WebBrowserで認証ページを開く
           const result = await WebBrowser.openAuthSessionAsync(
             data.url,
@@ -157,36 +115,17 @@ export default function LoginScreen() {
             }
           );
 
-          // #region agent log - H4: WebBrowser結果
-          console.log('[DEBUG H4] WebBrowser result type:', result.type);
-          if (result.type === 'success') {
-            console.log('[DEBUG H4] WebBrowser result url:', (result as any).url?.substring(0, 100));
-          }
-          // #endregion
-
           if (result.type === 'success' && result.url) {
             // 成功したらアプリ内の /auth/callback へ委譲（code交換はそちらで）
             router.replace('/auth/callback');
-          } else if (result.type === 'cancel') {
-            // #region agent log - H4: キャンセル
-            console.log('[DEBUG H4] User cancelled auth');
-            // #endregion
-          } else if (result.type === 'dismiss') {
-            // #region agent log - H4: ディスミス
-            console.log('[DEBUG H4] Auth dismissed');
-            // #endregion
           }
         } else {
-          // #region agent log - H2: URLなし
           setErrorText('Googleログインの開始に失敗しました（URLが取得できません）');
-          // #endregion
         }
       }
     } catch (e: any) {
-      // #region agent log - H1/H5: エラー詳細
-      console.error('[DEBUG ERROR] Google login error:', e);
+      console.error('Google login error:', e);
       if (!errorText) setErrorText(e?.message ? `ログインに失敗しました: ${e.message}` : 'ログインに失敗しました');
-      // #endregion
     } finally {
       setIsLoading(false);
     }
@@ -223,21 +162,12 @@ export default function LoginScreen() {
     }
     setIsLoading(true);
     try {
-      const runId = `email-login-${Date.now()}`;
       const trimmedEmail = email.trim();
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:start',message:'H1:認証開始',data:{mode:isSignup?'signup':'login',emailLen:trimmedEmail.length,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
 
       // Vercel API経由でSupabaseに認証（Supabase直接接続を回避）
       const endpoint = isSignup
         ? `${API_BASE_URL}/api/auth/email-signup`
         : `${API_BASE_URL}/api/auth/email-login`;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:beforeFetch',message:'H2:API呼び出し前',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -245,30 +175,15 @@ export default function LoginScreen() {
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
 
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:afterFetch',message:'H2:API呼び出し後',data:{status:res.status,statusText:res.statusText,ok:res.ok},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
-
       const text = await res.text();
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:responseText',message:'H3:レスポンステキスト',data:{textLength:text.length,textPreview:text.substring(0,300)},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
 
       let json: any;
       try {
         json = JSON.parse(text);
       } catch (parseErr: any) {
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:parseError',message:'H3:JSONパース失敗',data:{parseError:parseErr?.message,text:text.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         setErrorText('サーバーからの応答が正しくありません。');
         return;
       }
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:parsed',message:'H4:パース成功',data:{success:json.success,hasSession:!!json.session,error:json.error,debug:json.debug},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
 
       if (!json.success) {
         setErrorText(json.error || '認証に失敗しました。');
@@ -283,33 +198,19 @@ export default function LoginScreen() {
 
       // セッションをSupabase clientにセット
       if (json.session?.access_token && json.session?.refresh_token) {
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:setSession',message:'H5:セッション設定開始',data:{hasAccessToken:!!json.session.access_token,hasRefreshToken:!!json.session.refresh_token},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
-
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: json.session.access_token,
           refresh_token: json.session.refresh_token,
         });
 
         if (sessionError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:setSessionError',message:'H5:セッション設定失敗',data:{error:sessionError.message},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'H5'})}).catch(()=>{});
-          // #endregion
           setErrorText('セッションの設定に失敗しました。');
           return;
         }
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:success',message:'認証成功',data:{navigatingTo:'/(tabs)'},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'SUCCESS'})}).catch(()=>{});
-      // #endregion
-
       router.replace('/(tabs)');
     } catch (e: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login.tsx:handleEmailSubmit:catchError',message:'H1:通信エラー',data:{error:e?.message??String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'error',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       setErrorText(e?.message ? `通信に失敗しました: ${e.message}` : '通信に失敗しました。');
     } finally {
       setIsLoading(false);

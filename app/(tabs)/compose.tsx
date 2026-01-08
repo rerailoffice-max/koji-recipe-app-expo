@@ -32,6 +32,9 @@ import { supabase } from '@/lib/supabase';
 
 // API Base URL
 const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://koji-recipe-app-c72x.vercel.app';
+// #region agent log
+console.log('[DEBUG-URL] API_BASE_URL resolved to:', API_BASE_URL, 'expoConfig:', Constants.expoConfig?.extra);
+// #endregion
 
 // 下書きの型
 interface Draft {
@@ -171,9 +174,9 @@ export default function ComposeScreen() {
           console.warn('API failed to generate menu ideas');
           setIntroStatus('error');
         }
-      } catch (e) {
+      } catch (e: any) {
         // #region agent log
-        console.log('[DEBUG-A] API error caught', {error:String(e)});
+        console.log('[DEBUG-CORS] API error caught', {error:String(e), message: e?.message, stack: e?.stack, url: `${API_BASE_URL}/api/quick-menu-idea`});
         // #endregion
         console.error('Failed to pre-generate menu ideas:', e);
         // エラー時はエラー状態を設定

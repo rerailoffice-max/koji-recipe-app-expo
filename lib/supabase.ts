@@ -1,7 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 環境変数から取得（app.json の extra に設定するか、EAS Build時に設定）
 // GOCHISOKOJI's Supabaseプロジェクト
@@ -65,6 +64,6 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
   },
 });
 
-// APIベースURL - 直接指定（Constants.expoConfigがPWAで正しく読み込まれない問題の回避）
-export const API_BASE_URL = 'https://api.gochisokoji.com';
+// APIベースURL - 開発用（テスト用）
+export const API_BASE_URL = 'https://koji-recipe-app-c72x.vercel.app';
 

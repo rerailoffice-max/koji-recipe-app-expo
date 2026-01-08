@@ -4,9 +4,9 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 環境変数から取得（app.json の extra に設定するか、EAS Build時に設定）
-// Next.js版と同じSupabaseプロジェクトを使用
-export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://cykogheprysvhimwlndm.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5a29naGVwcnlzdmhpbXdsbmRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2MzAzMDksImV4cCI6MjA4MTIwNjMwOX0.XVEK-jFe003kGwV_kQ3CJz0Ocr0cV46vZexYONbTatU';
+// GOCHISOKOJI's Supabaseプロジェクト
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://xvzwvwyjyiykdqvpxppf.supabase.co';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2end2d3lqeWl5a2RxdnB4cHBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MzQzNDgsImV4cCI6MjA4MjMxMDM0OH0.cZAVDs_NES0SAxHb7J8uL7RqHRykqwoTPDTdcR90Bc4';
 
 // SSR環境（window/localStorageがない）ではメモリストレージを使用
 const isSSR = typeof window === 'undefined';
@@ -65,6 +65,6 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
   },
 });
 
-// APIベースURL
-export const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://koji-recipe-app-c72x.vercel.app';
+// APIベースURL (gochisokoji.com)
+export const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ?? 'https://gochisokoji.com';
 

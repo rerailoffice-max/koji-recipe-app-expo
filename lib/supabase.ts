@@ -64,6 +64,6 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
   },
 });
 
-// APIベースURL - 開発用（テスト用）
-export const API_BASE_URL = 'https://koji-recipe-app-c72x.vercel.app';
+// APIベースURL - 本番用
+export const API_BASE_URL = 'https://api.gochisokoji.com';
 

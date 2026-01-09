@@ -22,8 +22,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { supabase } from '@/lib/supabase';
 
-// API Base URL - 開発用（テスト用）
-const API_BASE_URL = 'https://koji-recipe-app-c72x.vercel.app';
+// API Base URL - 本番用
+const API_BASE_URL = 'https://api.gochisokoji.com';
 
 // 型定義
 interface Ingredient {

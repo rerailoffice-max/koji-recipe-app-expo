@@ -16,8 +16,8 @@ import {
   type Ingredient,
 } from '@/components/ui';
 
-// API Base URL - 開発用（テスト用）
-const API_BASE_URL = 'https://koji-recipe-app-c72x.vercel.app';
+// API Base URL - 本番用
+const API_BASE_URL = 'https://api.gochisokoji.com';
 
 // 投稿データ型
 interface Post {

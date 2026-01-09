@@ -125,9 +125,42 @@ export default function AuthCallbackScreen() {
         // Googleログイン後に posts.user_id のFKを満たすため、public.users を作成/更新
         if (userData?.user?.id) {
           try {
+            // まずは行を確実に作る（FK対策）
             await supabase
               .from('users')
               .upsert({ id: userData.user.id, email: userData.user.email ?? null }, { onConflict: 'id' });
+
+            // 表示名/アイコンは Auth の user_metadata から補完（ユーザーが手動で設定した値は上書きしない）
+            const meta: any = userData.user.user_metadata ?? {};
+            const derivedDisplayName: string | null =
+              (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+              (typeof meta.name === 'string' && meta.name.trim()) ||
+              (typeof meta.preferred_username === 'string' && meta.preferred_username.trim()) ||
+              null;
+            const derivedAvatarUrl: string | null =
+              (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) ||
+              (typeof meta.picture === 'string' && meta.picture.trim()) ||
+              null;
+
+            const { data: existing, error: existingErr }: any = await supabase
+              .from('users')
+              .select('display_name, avatar_url')
+              .eq('id', userData.user.id)
+              .single();
+
+            // 0件（PGRST116）は「未作成」扱い（直前upsert後なので基本起きないが保険）
+            if (!existingErr || existingErr?.code === 'PGRST116') {
+              const next: any = {};
+              if (derivedDisplayName && !(existing?.display_name && String(existing.display_name).trim())) {
+                next.display_name = derivedDisplayName;
+              }
+              if (derivedAvatarUrl && !(existing?.avatar_url && String(existing.avatar_url).trim())) {
+                next.avatar_url = derivedAvatarUrl;
+              }
+              if (Object.keys(next).length > 0) {
+                await supabase.from('users').update(next).eq('id', userData.user.id);
+              }
+            }
           } catch (e) {
             // ignore
           }

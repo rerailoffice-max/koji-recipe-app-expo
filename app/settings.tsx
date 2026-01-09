@@ -59,6 +59,21 @@ export default function SettingsScreen() {
         }
         setUser(user);
 
+        // Authメタデータから表示名/アバターを先に補完（DBが空でも「何も表示されない」を防ぐ）
+        const meta: any = user.user_metadata ?? {};
+        const derivedDisplayName: string =
+          (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+          (typeof meta.name === 'string' && meta.name.trim()) ||
+          (user.email?.split('@')?.[0] ?? '');
+        const derivedAvatarUrl: string | null =
+          (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) ||
+          (typeof meta.picture === 'string' && meta.picture.trim()) ||
+          null;
+
+        // 画面の初期表示（DBロード前のフォールバック）
+        if (derivedAvatarUrl) setAvatarUrl(derivedAvatarUrl);
+        if (derivedDisplayName) setDisplayName(derivedDisplayName);
+
         // posts.user_id のFKや設定画面の読み込みで users 行が必要になるため、
         // まず public.users を確実に作成/更新してから読む
         try {
@@ -82,9 +97,22 @@ export default function SettingsScreen() {
         }
 
         if (profile) {
-          setAvatarUrl(profile.avatar_url);
-          setDisplayName(profile.display_name || '');
+          // DB値がある場合は優先。空の場合は derived を保持。
+          setAvatarUrl(profile.avatar_url || derivedAvatarUrl);
+          setDisplayName(profile.display_name || derivedDisplayName || '');
           setBio(profile.bio || '');
+
+          // DBに未設定なら、Authメタデータで補完（ユーザー手入力は上書きしない）
+          const patch: any = {};
+          if (derivedDisplayName && !(profile.display_name && String(profile.display_name).trim())) {
+            patch.display_name = derivedDisplayName;
+          }
+          if (derivedAvatarUrl && !(profile.avatar_url && String(profile.avatar_url).trim())) {
+            patch.avatar_url = derivedAvatarUrl;
+          }
+          if (Object.keys(patch).length > 0) {
+            await supabase.from('users').update(patch).eq('id', user.id);
+          }
         }
       } catch (e) {
         console.error('Load profile error:', e);

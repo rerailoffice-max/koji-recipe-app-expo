@@ -116,6 +116,8 @@ export default function ComposeScreen() {
   // メニュー例（クイックプロンプト選択時に表示する3つの候補）
   const [exampleMenus, setExampleMenus] = React.useState<MenuIdea[] | null>(null);
   const [introStatus, setIntroStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [introErrorText, setIntroErrorText] = React.useState<string | null>(null);
+  const [introRetryUntilMs, setIntroRetryUntilMs] = React.useState<number | null>(null);
   
   // 下書き生成中フラグ
   const [isGeneratingDraft, setIsGeneratingDraft] = React.useState(false);
@@ -454,6 +456,8 @@ export default function ComposeScreen() {
             setSelectedQuickPrompt(null);
             setExampleMenus(null);
             setIntroStatus('idle');
+            setIntroErrorText(null);
+            setIntroRetryUntilMs(null);
           },
         },
       ]
@@ -546,12 +550,16 @@ export default function ComposeScreen() {
     if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
       setExampleMenus(preGenerated.menuIdeas);
       setIntroStatus('ready');
+      setIntroErrorText(null);
+      setIntroRetryUntilMs(null);
       return;
     }
 
     // オンデマンド生成（カテゴリ単体）
     setExampleMenus(null);
     setIntroStatus('loading');
+    setIntroErrorText(null);
+    setIntroRetryUntilMs(null);
 
     if (preGenerateMenusInFlightRef.current) {
       // #region agent log
@@ -569,27 +577,23 @@ export default function ComposeScreen() {
         const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ promptCategory: promptId }),
+          // API側は promptCategory 単体だと menuIdea(単数) を返すため、
+          // 3案(menuIdeas配列)が取れる allCategories で取得してクライアント側でカテゴリを抜き出す
+          body: JSON.stringify({ allCategories: true }),
         });
         const json = await res.json().catch(() => null);
         // #region agent log
         console.log('[DEBUG-MENU-ONDEMAND-B] API response received', {status:res.status,ok:res.ok,success:json?.success,hasMenuIdeas:Array.isArray(json?.menuIdeas),hasResults:!!json?.results});
         // #endregion
 
-        // APIレスポンスの形は環境により差があるため、複数パターンを許容
-        const menuIdeasFromDirect = Array.isArray(json?.menuIdeas) ? (json.menuIdeas as MenuIdea[]) : null;
         const menuIdeasFromResults =
           json?.results?.[promptId]?.menuIdeas && Array.isArray(json.results[promptId].menuIdeas)
             ? (json.results[promptId].menuIdeas as MenuIdea[])
             : null;
-        const menuIdeas = menuIdeasFromDirect ?? menuIdeasFromResults;
 
-        if (res.ok && json?.success && menuIdeas && menuIdeas.length > 0) {
-          setPreGeneratedMenus((prev) => ({
-            ...(prev ?? {}),
-            [promptId]: { menuIdeas },
-          }));
-          setExampleMenus(menuIdeas);
+        if (res.ok && json?.success && json?.results && menuIdeasFromResults && menuIdeasFromResults.length > 0) {
+          setPreGeneratedMenus((prev) => (prev ? prev : json.results));
+          setExampleMenus(menuIdeasFromResults);
           setIntroStatus('ready');
           return;
         }
@@ -603,15 +607,31 @@ export default function ComposeScreen() {
           errorText.includes('quota') ||
           res.status === 429;
 
+        const m = detailsText.match(/retry in\\s+([0-9.]+)\\s*s/i);
+        const retrySeconds = m?.[1] ? Number(m[1]) : null;
+        if (isQuota && retrySeconds && Number.isFinite(retrySeconds)) {
+          setIntroRetryUntilMs(Date.now() + Math.ceil(retrySeconds * 1000));
+        }
+
         // #region agent log
         console.log('[DEBUG-MENU-ONDEMAND-C] menuIdeas not ready', {promptId,status:res.status,isQuota,errorText,detailsHead:detailsText.slice(0,120)});
         // #endregion
 
+        if (isQuota) {
+          setIntroErrorText(
+            retrySeconds && Number.isFinite(retrySeconds)
+              ? `AIの呼び出し上限に達しました。${Math.ceil(retrySeconds)}秒ほど待ってから再試行してください。`
+              : 'AIの呼び出し上限に達しました。少し待ってから再試行してください。'
+          );
+        } else {
+          setIntroErrorText(errorText || '生成に失敗しました。少し待ってから再試行してください。');
+        }
         setIntroStatus('error');
       } catch (e: any) {
         // #region agent log
         console.log('[DEBUG-MENU-ONDEMAND-D] API error caught', {promptId,error:String(e), message: e?.message});
         // #endregion
+        setIntroErrorText('通信に失敗しました。少し待ってから再試行してください。');
         setIntroStatus('error');
       } finally {
         preGenerateMenusInFlightRef.current = false;
@@ -632,42 +652,54 @@ export default function ComposeScreen() {
   // メニュー生成を再試行
   const handleRetryMenuGeneration = React.useCallback(async () => {
     setIntroStatus('loading');
+    setIntroErrorText(null);
     preGenerateMenusInFlightRef.current = false;
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(selectedQuickPrompt ? { promptCategory: selectedQuickPrompt } : { allCategories: true }),
+        body: JSON.stringify({ allCategories: true }),
       });
       const json = await res.json().catch(() => null);
-      
-      const menuIdeasFromDirect = Array.isArray(json?.menuIdeas) ? (json.menuIdeas as MenuIdea[]) : null;
-      const menuIdeasFromResults =
-        selectedQuickPrompt && json?.results?.[selectedQuickPrompt]?.menuIdeas && Array.isArray(json.results[selectedQuickPrompt].menuIdeas)
-          ? (json.results[selectedQuickPrompt].menuIdeas as MenuIdea[])
-          : null;
-      const menuIdeas = menuIdeasFromDirect ?? menuIdeasFromResults;
 
-      if (selectedQuickPrompt && res.ok && json?.success && menuIdeas && menuIdeas.length > 0) {
-        setPreGeneratedMenus((prev) => ({
-          ...(prev ?? {}),
-          [selectedQuickPrompt]: { menuIdeas },
-        }));
-        setExampleMenus(menuIdeas);
-        setIntroStatus('ready');
-        return;
-      }
-
-      if (!selectedQuickPrompt && res.ok && json?.success && json?.results) {
+      if (res.ok && json?.success && json?.results) {
         setPreGeneratedMenus(json.results);
-        setIntroStatus('ready');
+        if (selectedQuickPrompt) {
+          const menuIdeas =
+            json?.results?.[selectedQuickPrompt]?.menuIdeas && Array.isArray(json.results[selectedQuickPrompt].menuIdeas)
+              ? (json.results[selectedQuickPrompt].menuIdeas as MenuIdea[])
+              : null;
+          if (menuIdeas && menuIdeas.length > 0) {
+            setExampleMenus(menuIdeas);
+            setIntroStatus('ready');
+            return;
+          }
+        }
+        // selected がない場合は結果保持だけして待機
+        setIntroStatus(selectedQuickPrompt ? 'error' : 'idle');
         return;
       }
 
+      const detailsText = typeof json?.details === 'string' ? json.details : '';
+      const errorText = typeof json?.error === 'string' ? json.error : '';
+      const isQuota = detailsText.includes('Quota exceeded') || res.status === 429;
+      const m = detailsText.match(/retry in\\s+([0-9.]+)\\s*s/i);
+      const retrySeconds = m?.[1] ? Number(m[1]) : null;
+      if (isQuota && retrySeconds && Number.isFinite(retrySeconds)) {
+        setIntroRetryUntilMs(Date.now() + Math.ceil(retrySeconds * 1000));
+      }
+      setIntroErrorText(
+        isQuota
+          ? retrySeconds && Number.isFinite(retrySeconds)
+            ? `AIの呼び出し上限に達しました。${Math.ceil(retrySeconds)}秒ほど待ってから再試行してください。`
+            : 'AIの呼び出し上限に達しました。少し待ってから再試行してください。'
+          : errorText || '生成に失敗しました。少し待ってから再試行してください。'
+      );
       setIntroStatus('error');
     } catch (e) {
       console.error('Retry failed:', e);
+      setIntroErrorText('通信に失敗しました。少し待ってから再試行してください。');
       setIntroStatus('error');
     }
   }, [selectedQuickPrompt]);
@@ -818,14 +850,17 @@ export default function ComposeScreen() {
                       {introStatus === 'error' && (
                         <View style={styles.exampleLoading}>
                           <Text style={[styles.exampleLoadingText, { color: colors.mutedForeground }]}>
-                            生成に失敗しました
+                            {introErrorText ?? '生成に失敗しました'}
                           </Text>
                           <Pressable
                             onPress={handleRetryMenuGeneration}
+                            disabled={!!introRetryUntilMs && introRetryUntilMs > Date.now()}
                             style={[styles.retryButton, { borderColor: colors.primary }]}
                           >
                             <Text style={[styles.retryButtonText, { color: colors.primary }]}>
-                              再試行
+                              {introRetryUntilMs && introRetryUntilMs > Date.now()
+                                ? `待機中… ${Math.ceil((introRetryUntilMs - Date.now()) / 1000)}秒`
+                                : '再試行'}
                             </Text>
                           </Pressable>
                         </View>

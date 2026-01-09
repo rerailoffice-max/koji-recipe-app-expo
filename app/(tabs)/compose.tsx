@@ -610,16 +610,6 @@ export default function ComposeScreen() {
     console.log('[DEBUG-C] chip tapped', {promptId,hasPreGeneratedMenus:preGeneratedMenus!==null,preGeneratedMenusKeys:preGeneratedMenus?Object.keys(preGeneratedMenus):null});
     // #endregion
     setSelectedQuickPrompt(promptId);
-    
-    // 事前生成済みメニューがあれば即座に表示
-    const preGenerated = preGeneratedMenus?.[promptId];
-    if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
-      setExampleMenus(preGenerated.menuIdeas);
-      setIntroStatus('ready');
-      setIntroErrorText(null);
-      setIntroRetryUntilMs(null);
-      return;
-    }
 
     // オンデマンド生成（カテゴリ単体）
     setExampleMenus(null);
@@ -647,9 +637,8 @@ export default function ComposeScreen() {
         const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // API側は promptCategory 単体だと menuIdea(単数) を返すため、
-          // 3案(menuIdeas配列)が取れる allCategories で取得してクライアント側でカテゴリを抜き出す
-          body: JSON.stringify({ allCategories: true }),
+          // カテゴリ単体でも 3案（旨塩/中華/コンソメ）を返す
+          body: JSON.stringify({ promptCategory: promptId }),
           signal: controller.signal,
         });
         const json = await res.json().catch(() => null);
@@ -657,14 +646,14 @@ export default function ComposeScreen() {
         console.log('[DEBUG-MENU-ONDEMAND-B] API response received', {status:res.status,ok:res.ok,success:json?.success,hasMenuIdeas:Array.isArray(json?.menuIdeas),hasResults:!!json?.results});
         // #endregion
 
-        const menuIdeasFromResults =
-          json?.results?.[promptId]?.menuIdeas && Array.isArray(json.results[promptId].menuIdeas)
-            ? (json.results[promptId].menuIdeas as MenuIdea[])
+        const menuIdeasFromBody =
+          json?.menuIdeas && Array.isArray(json.menuIdeas)
+            ? (json.menuIdeas as MenuIdea[])
             : null;
 
-        if (res.ok && json?.success && json?.results && menuIdeasFromResults && menuIdeasFromResults.length > 0) {
-          setPreGeneratedMenus((prev) => (prev ? prev : json.results));
-          setExampleMenus(menuIdeasFromResults);
+        if (res.ok && json?.success && menuIdeasFromBody && menuIdeasFromBody.length > 0) {
+          // 毎回のバリエーション確保のため、結果キャッシュ（preGeneratedMenus）は使わない
+          setExampleMenus(menuIdeasFromBody);
           setIntroStatus('ready');
           return;
         }
@@ -736,25 +725,17 @@ export default function ComposeScreen() {
       const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ allCategories: true }),
+        body: JSON.stringify(selectedQuickPrompt ? { promptCategory: selectedQuickPrompt } : { allCategories: true }),
       });
       const json = await res.json().catch(() => null);
 
-      if (res.ok && json?.success && json?.results) {
-        setPreGeneratedMenus(json.results);
-        if (selectedQuickPrompt) {
-          const menuIdeas =
-            json?.results?.[selectedQuickPrompt]?.menuIdeas && Array.isArray(json.results[selectedQuickPrompt].menuIdeas)
-              ? (json.results[selectedQuickPrompt].menuIdeas as MenuIdea[])
-              : null;
-          if (menuIdeas && menuIdeas.length > 0) {
-            setExampleMenus(menuIdeas);
-            setIntroStatus('ready');
-            return;
-          }
-        }
-        // selected がない場合は結果保持だけして待機
-        setIntroStatus(selectedQuickPrompt ? 'error' : 'idle');
+      const menuIdeasFromBody =
+        json?.menuIdeas && Array.isArray(json.menuIdeas)
+          ? (json.menuIdeas as MenuIdea[])
+          : null;
+      if (res.ok && json?.success && menuIdeasFromBody && menuIdeasFromBody.length > 0) {
+        setExampleMenus(menuIdeasFromBody);
+        setIntroStatus('ready');
         return;
       }
 

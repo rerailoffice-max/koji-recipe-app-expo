@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -192,37 +193,51 @@ export default function PostDetailScreen() {
   const handleDeletePost = async () => {
     if (!post || isDeleting) return;
     
-    Alert.alert(
-      '投稿を削除',
-      'この投稿を削除しますか？この操作は取り消せません。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              const { error } = await supabase
-                .from('posts')
-                .delete()
-                .eq('id', post.id);
-              
-              if (error) throw error;
-              
-              Alert.alert('削除完了', '投稿を削除しました', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)') },
-              ]);
-            } catch (e: any) {
-              console.error('Delete error:', e);
-              Alert.alert('エラー', '削除に失敗しました');
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+    // 削除実行関数
+    const doDelete = async () => {
+      setIsDeleting(true);
+      try {
+        const { error } = await supabase
+          .from('posts')
+          .delete()
+          .eq('id', post.id);
+        
+        if (error) throw error;
+        
+        if (Platform.OS === 'web') {
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert('削除完了', '投稿を削除しました', [
+            { text: 'OK', onPress: () => router.replace('/(tabs)') },
+          ]);
+        }
+      } catch (e: any) {
+        console.error('Delete error:', e);
+        if (Platform.OS === 'web') {
+          window.alert('削除に失敗しました');
+        } else {
+          Alert.alert('エラー', '削除に失敗しました');
+        }
+      } finally {
+        setIsDeleting(false);
+      }
+    };
+    
+    // Web環境ではconfirmを使用
+    if (Platform.OS === 'web') {
+      if (window.confirm('この投稿を削除しますか？この操作は取り消せません。')) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        '投稿を削除',
+        'この投稿を削除しますか？この操作は取り消せません。',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: '削除', style: 'destructive', onPress: doDelete },
+        ]
+      );
+    }
   };
 
   if (isLoading) {
@@ -459,23 +474,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appBarButton: {
-    paddingHorizontal: Spacing.sm,
-    height: 44,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   appBarRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   deleteButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
   },
   editButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
   },
   loadingContainer: {
     flex: 1,

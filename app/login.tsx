@@ -48,7 +48,7 @@ export default function LoginScreen() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          router.replace('/(tabs)');
+          router.replace('/');
         }
       } catch (e) {
         console.error('Session check error:', e);
@@ -62,7 +62,7 @@ export default function LoginScreen() {
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        router.replace('/(tabs)');
+        router.replace('/');
       }
     });
 

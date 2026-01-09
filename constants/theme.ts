@@ -6,7 +6,7 @@
 import { Platform } from 'react-native';
 
 // 麹アプリのプライマリカラー
-const primary = '#c3923a';
+const primary = '#BFAB90';
 const primaryForeground = '#ffffff';
 
 // ライトモードのベース

@@ -33,7 +33,7 @@
       "lang": "ja",
       "display": "standalone",
       "orientation": "portrait",
-      "themeColor": "#c3923a",
+      "themeColor": "#BFAB90",
       "backgroundColor": "#F7F1E7",
       "favicon": "./assets/images/favicon.png",
       "startUrl": "/",

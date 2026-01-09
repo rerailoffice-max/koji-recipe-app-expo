@@ -100,9 +100,11 @@ export default function AuthCallbackScreen() {
           // #endregion
         }
 
-        // セッション取得できたらホームへ
+        // セッション取得できたらホームへ（Webでは /(tabs) より / の方が確実）
         const { data } = await supabase.auth.getSession();
         const hasSession = !!data?.session;
+        const { data: userData } = await supabase.auth.getUser();
+        const hasUser = !!userData?.user;
 
         // #region agent log
         fetch(LOG_URL, {
@@ -120,7 +122,18 @@ export default function AuthCallbackScreen() {
         }).catch(() => {});
         // #endregion
 
-        if (hasSession) router.replace('/(tabs)');
+        // Googleログイン後に posts.user_id のFKを満たすため、public.users を作成/更新
+        if (userData?.user?.id) {
+          try {
+            await supabase
+              .from('users')
+              .upsert({ id: userData.user.id, email: userData.user.email ?? null }, { onConflict: 'id' });
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (hasSession || hasUser) router.replace('/');
       } catch (e: any) {
         // #region agent log
         fetch(LOG_URL, {

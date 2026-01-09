@@ -60,7 +60,8 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
     storage: getStorage(),
     autoRefreshToken: !isSSR,
     persistSession: !isSSR,
-    detectSessionInUrl: false,
+    // Web OAuth ではURLからのセッション復元が必要になるケースがあるため有効化
+    detectSessionInUrl: !isSSR && Platform.OS === 'web',
   },
 });
 

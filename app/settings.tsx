@@ -59,12 +59,27 @@ export default function SettingsScreen() {
         }
         setUser(user);
 
+        // posts.user_id のFKや設定画面の読み込みで users 行が必要になるため、
+        // まず public.users を確実に作成/更新してから読む
+        try {
+          await supabase
+            .from('users')
+            .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
+        } catch (upsertErr) {
+          console.warn('Profile upsert failed:', upsertErr);
+        }
+
         // プロフィール情報を取得
-        const { data: profile } = await supabase
+        const { data: profile, error: profileErr } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .single();
+
+        // 0件（PGRST116）は「まだプロフィール未作成」なので致命ではない
+        if (profileErr && profileErr.code !== 'PGRST116') {
+          console.warn('Load profile error:', profileErr);
+        }
 
         if (profile) {
           setAvatarUrl(profile.avatar_url);

@@ -520,7 +520,20 @@ export default function ComposeScreen() {
         );
         setSuggestions([]);
         
-        // フォーム画面へ遷移（抽出されたレシピデータを渡す）
+        // 会話履歴から画像を探す（最新の画像を使用）
+        let imageBase64 = '';
+        for (let i = currentMessages.length - 1; i >= 0; i--) {
+          const msg = currentMessages[i];
+          if (msg.attachments && msg.attachments.length > 0) {
+            const imgAttachment = msg.attachments.find(a => a.kind === 'image');
+            if (imgAttachment && imgAttachment.dataBase64) {
+              imageBase64 = imgAttachment.dataBase64;
+              break;
+            }
+          }
+        }
+        
+        // フォーム画面へ遷移（抽出されたレシピデータと画像を渡す）
         setTimeout(() => {
           router.push({
             pathname: '/compose/edit',
@@ -532,6 +545,7 @@ export default function ComposeScreen() {
               ingredients: JSON.stringify(recipe.ingredients || []),
               steps: JSON.stringify(recipe.steps || []),
               tips: recipe.tips || '',
+              image_base64: imageBase64 || '',
             },
           });
         }, 1000);

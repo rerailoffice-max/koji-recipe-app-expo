@@ -84,6 +84,7 @@ export default function RecipeEditScreen() {
     difficulty?: string;
     ingredients?: string;
     steps?: string;
+    image_base64?: string;
   }>();
 
   // フォームの初期値を設定
@@ -145,12 +146,23 @@ export default function RecipeEditScreen() {
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: null,
       });
+      
+      // チャットから渡された画像を設定
+      if (params.image_base64) {
+        // Base64データをData URLに変換（既にData URL形式の場合はそのまま使用）
+        const base64 = params.image_base64;
+        if (base64.startsWith('data:')) {
+          setImageUri(base64);
+        } else {
+          setImageUri(`data:image/jpeg;base64,${base64}`);
+        }
+      }
     }
 
     if (draftIdParam) {
       setDraftId(draftIdParam);
     }
-  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty]);
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 

@@ -156,36 +156,78 @@ export default function SettingsScreen() {
     try {
       setIsSaving(true);
 
-      // ファイルを読み込む
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Base64データを抽出（Web環境ではdata URLの場合がある）
+      let blob: Blob;
+      let mimeType = 'image/jpeg';
+      
+      if (uri.startsWith('data:')) {
+        // data URL形式
+        const base64Match = uri.match(/^data:([^;]+);base64,(.+)$/);
+        if (base64Match) {
+          mimeType = base64Match[1];
+          const base64Data = base64Match[2];
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          blob = new Blob([byteArray], { type: mimeType });
+        } else {
+          throw new Error('Invalid data URL');
+        }
+      } else {
+        // 通常のURI
+        const response = await fetch(uri);
+        blob = await response.blob();
+        mimeType = blob.type || 'image/jpeg';
+      }
 
-      const fileExt = uri.split('.').pop() || 'jpg';
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const ext = mimeType.split('/')[1] || 'jpg';
+      const fileName = `${user.id}/avatar-${Date.now()}.${ext}`;
 
-      // アップロード
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, blob, { upsert: true });
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:uploadAvatar',message:'[HYP-J] Uploading avatar',data:{fileName,blobSize:blob.size,mimeType},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+
+      // アップロード（recipe-imagesバケットを使用）
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, blob, { contentType: mimeType, upsert: true });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:uploadAvatar:result',message:'[HYP-J] Upload result',data:{uploadData:uploadData?.path,uploadError:uploadError?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
 
       if (uploadError) throw uploadError;
 
       // 公開URLを取得
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from('recipe-images')
         .getPublicUrl(fileName);
 
       // プロフィールを更新
-      await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);
 
+      if (updateError) throw updateError;
+
       setAvatarUrl(publicUrl);
-      Alert.alert('完了', 'プロフィール画像を更新しました。');
-    } catch (e) {
+      
+      if (Platform.OS === 'web') {
+        window.alert('プロフィール画像を更新しました。');
+      } else {
+        Alert.alert('完了', 'プロフィール画像を更新しました。');
+      }
+    } catch (e: any) {
       console.error('Upload avatar error:', e);
-      Alert.alert('エラー', '画像のアップロードに失敗しました。');
+      if (Platform.OS === 'web') {
+        window.alert('画像のアップロードに失敗しました: ' + (e?.message || ''));
+      } else {
+        Alert.alert('エラー', '画像のアップロードに失敗しました。');
+      }
     } finally {
       setIsSaving(false);
     }

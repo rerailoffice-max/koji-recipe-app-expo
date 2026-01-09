@@ -142,51 +142,11 @@ export default function ComposeScreen() {
   
   // ページ読み込み時に全カテゴリのメニュー案を事前生成
   React.useEffect(() => {
+    // レート制限（Gemini無料枠）で固まりやすいため、起動時の全カテゴリ事前生成は行わない。
+    // 必要になったカテゴリのみ、チップ押下時にオンデマンドで生成する。
     // #region agent log
-    console.log('[DEBUG-E] useEffect triggered', {preGeneratedMenus:preGeneratedMenus!==null,inFlight:preGenerateMenusInFlightRef.current});
+    console.log('[DEBUG-E] pre-generate skipped (on-demand mode)', {preGeneratedMenus:preGeneratedMenus!==null});
     // #endregion
-    if (preGeneratedMenus !== null) return; // 既に生成済み
-    if (preGenerateMenusInFlightRef.current) return;
-
-    const loadAllMenuIdeas = async () => {
-      preGenerateMenusInFlightRef.current = true;
-      // #region agent log
-      console.log('[DEBUG-A] API call starting', {url:`${API_BASE_URL}/api/quick-menu-idea`});
-      // #endregion
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ allCategories: true }),
-        });
-        const json = await res.json().catch(() => null);
-        // #region agent log
-        console.log('[DEBUG-B] API response received', {ok:res.ok,success:json?.success,hasResults:!!json?.results,resultsKeys:json?.results?Object.keys(json.results):null});
-        // #endregion
-        
-        if (res.ok && json?.success && json?.results) {
-          setPreGeneratedMenus((prev) => (prev ? prev : json.results));
-          // #region agent log
-          console.log('[DEBUG-C] setPreGeneratedMenus called', {resultsKeys:Object.keys(json.results)});
-          // #endregion
-        } else {
-          // API失敗時はエラー状態を設定
-          console.warn('API failed to generate menu ideas');
-          setIntroStatus('error');
-        }
-      } catch (e: any) {
-        // #region agent log
-        console.log('[DEBUG-CORS] API error caught', {error:String(e), message: e?.message, stack: e?.stack, url: `${API_BASE_URL}/api/quick-menu-idea`});
-        // #endregion
-        console.error('Failed to pre-generate menu ideas:', e);
-        // エラー時はエラー状態を設定
-        setIntroStatus('error');
-      } finally {
-        preGenerateMenusInFlightRef.current = false;
-      }
-    };
-
-    void loadAllMenuIdeas();
   }, [preGeneratedMenus]);
   
   // 事前生成が完了したら、選択中のカテゴリの内容で更新
@@ -588,10 +548,77 @@ export default function ComposeScreen() {
       setIntroStatus('ready');
       return;
     }
-    
-    // APIがまだ完了していない場合はローディング表示
+
+    // オンデマンド生成（カテゴリ単体）
     setExampleMenus(null);
     setIntroStatus('loading');
+
+    if (preGenerateMenusInFlightRef.current) {
+      // #region agent log
+      console.log('[DEBUG-MENU-ONDEMAND] skipped (already in flight)', {promptId});
+      // #endregion
+      return;
+    }
+
+    const loadCategoryMenuIdeas = async () => {
+      preGenerateMenusInFlightRef.current = true;
+      // #region agent log
+      console.log('[DEBUG-MENU-ONDEMAND-A] API call starting', {url:`${API_BASE_URL}/api/quick-menu-idea`, promptCategory: promptId});
+      // #endregion
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ promptCategory: promptId }),
+        });
+        const json = await res.json().catch(() => null);
+        // #region agent log
+        console.log('[DEBUG-MENU-ONDEMAND-B] API response received', {status:res.status,ok:res.ok,success:json?.success,hasMenuIdeas:Array.isArray(json?.menuIdeas),hasResults:!!json?.results});
+        // #endregion
+
+        // APIレスポンスの形は環境により差があるため、複数パターンを許容
+        const menuIdeasFromDirect = Array.isArray(json?.menuIdeas) ? (json.menuIdeas as MenuIdea[]) : null;
+        const menuIdeasFromResults =
+          json?.results?.[promptId]?.menuIdeas && Array.isArray(json.results[promptId].menuIdeas)
+            ? (json.results[promptId].menuIdeas as MenuIdea[])
+            : null;
+        const menuIdeas = menuIdeasFromDirect ?? menuIdeasFromResults;
+
+        if (res.ok && json?.success && menuIdeas && menuIdeas.length > 0) {
+          setPreGeneratedMenus((prev) => ({
+            ...(prev ?? {}),
+            [promptId]: { menuIdeas },
+          }));
+          setExampleMenus(menuIdeas);
+          setIntroStatus('ready');
+          return;
+        }
+
+        // レート制限/サーバエラー時は「再試行」へ誘導
+        const detailsText = typeof json?.details === 'string' ? json.details : '';
+        const errorText = typeof json?.error === 'string' ? json.error : '';
+        const isQuota =
+          detailsText.includes('Quota exceeded') ||
+          detailsText.includes('rate') ||
+          errorText.includes('quota') ||
+          res.status === 429;
+
+        // #region agent log
+        console.log('[DEBUG-MENU-ONDEMAND-C] menuIdeas not ready', {promptId,status:res.status,isQuota,errorText,detailsHead:detailsText.slice(0,120)});
+        // #endregion
+
+        setIntroStatus('error');
+      } catch (e: any) {
+        // #region agent log
+        console.log('[DEBUG-MENU-ONDEMAND-D] API error caught', {promptId,error:String(e), message: e?.message});
+        // #endregion
+        setIntroStatus('error');
+      } finally {
+        preGenerateMenusInFlightRef.current = false;
+      }
+    };
+
+    void loadCategoryMenuIdeas();
   }, [preGeneratedMenus]);
   
   // メニュー例をタップして即レシピモードで送信
@@ -605,28 +632,40 @@ export default function ComposeScreen() {
   // メニュー生成を再試行
   const handleRetryMenuGeneration = React.useCallback(async () => {
     setIntroStatus('loading');
-    setPreGeneratedMenus(null);
     preGenerateMenusInFlightRef.current = false;
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/quick-menu-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ allCategories: true }),
+        body: JSON.stringify(selectedQuickPrompt ? { promptCategory: selectedQuickPrompt } : { allCategories: true }),
       });
       const json = await res.json().catch(() => null);
       
-      if (res.ok && json?.success && json?.results) {
-        setPreGeneratedMenus(json.results);
-        // 選択中のカテゴリがあれば即座に表示
-        const preGenerated = json.results[selectedQuickPrompt];
-        if (selectedQuickPrompt && preGenerated?.menuIdeas?.length > 0) {
-          setExampleMenus(preGenerated.menuIdeas);
-          setIntroStatus('ready');
-        }
-      } else {
-        setIntroStatus('error');
+      const menuIdeasFromDirect = Array.isArray(json?.menuIdeas) ? (json.menuIdeas as MenuIdea[]) : null;
+      const menuIdeasFromResults =
+        selectedQuickPrompt && json?.results?.[selectedQuickPrompt]?.menuIdeas && Array.isArray(json.results[selectedQuickPrompt].menuIdeas)
+          ? (json.results[selectedQuickPrompt].menuIdeas as MenuIdea[])
+          : null;
+      const menuIdeas = menuIdeasFromDirect ?? menuIdeasFromResults;
+
+      if (selectedQuickPrompt && res.ok && json?.success && menuIdeas && menuIdeas.length > 0) {
+        setPreGeneratedMenus((prev) => ({
+          ...(prev ?? {}),
+          [selectedQuickPrompt]: { menuIdeas },
+        }));
+        setExampleMenus(menuIdeas);
+        setIntroStatus('ready');
+        return;
       }
+
+      if (!selectedQuickPrompt && res.ok && json?.success && json?.results) {
+        setPreGeneratedMenus(json.results);
+        setIntroStatus('ready');
+        return;
+      }
+
+      setIntroStatus('error');
     } catch (e) {
       console.error('Retry failed:', e);
       setIntroStatus('error');

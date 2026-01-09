@@ -11,9 +11,9 @@ interface KojiFilter {
 }
 
 const KOJI_FILTERS: KojiFilter[] = [
-  { id: 'たまねぎこうじ', label: '旨塩', icon: '🧅' },
-  { id: 'コンソメこうじ', label: 'コンソメ', icon: '🥕' },
-  { id: '中華こうじ', label: '中華', icon: '🧄' },
+  { id: 'たまねぎ麹', label: '旨塩', icon: '🧅' },
+  { id: 'コンソメ麹', label: 'コンソメ', icon: '🥕' },
+  { id: '中華麹', label: '中華', icon: '🧄' },
 ];
 
 interface SearchFilterProps {

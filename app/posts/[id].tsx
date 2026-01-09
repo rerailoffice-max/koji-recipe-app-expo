@@ -313,6 +313,7 @@ export default function PostDetailScreen() {
                       difficulty: post.difficulty || 'かんたん',
                       ingredients: JSON.stringify(post.ingredients || []),
                       steps: JSON.stringify(post.steps || []),
+                      image_url: post.image_url || '',
                     },
                   })
                 }

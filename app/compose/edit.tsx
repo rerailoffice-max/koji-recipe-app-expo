@@ -85,6 +85,7 @@ export default function RecipeEditScreen() {
     ingredients?: string;
     steps?: string;
     image_base64?: string;
+    image_url?: string;
   }>();
 
   // フォームの初期値を設定
@@ -144,31 +145,28 @@ export default function RecipeEditScreen() {
         difficulty: params.difficulty || 'かんたん',
         ingredients: initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }],
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
-        image_url: null,
+        image_url: params.image_url || null,
       });
       
-      // チャットから渡された画像を設定
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:147',message:'[HYP-C] Checking image_base64 param',data:{hasImageBase64:!!params.image_base64,imageBase64Length:params.image_base64?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
+      // チャットから渡された画像を設定（Base64）
       if (params.image_base64) {
-        // Base64データをData URLに変換（既にData URL形式の場合はそのまま使用）
         const base64 = params.image_base64;
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:153',message:'[HYP-C] Setting imageUri',data:{startsWithData:base64.startsWith('data:'),base64Length:base64.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         if (base64.startsWith('data:')) {
           setImageUri(base64);
         } else {
           setImageUri(`data:image/jpeg;base64,${base64}`);
         }
       }
+      // 既存の画像URL（編集時）
+      else if (params.image_url) {
+        setImageUri(params.image_url);
+      }
     }
 
     if (draftIdParam) {
       setDraftId(draftIdParam);
     }
-  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64]);
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 

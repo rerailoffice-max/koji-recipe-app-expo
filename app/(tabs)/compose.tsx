@@ -112,6 +112,7 @@ export default function ComposeScreen() {
   // 事前生成されたメニュー案
   const [preGeneratedMenus, setPreGeneratedMenus] = React.useState<PreGeneratedMenus | null>(null);
   const preGenerateMenusInFlightRef = React.useRef(false);
+  const menuAbortRef = React.useRef<AbortController | null>(null);
   
   // メニュー例（クイックプロンプト選択時に表示する3つの候補）
   const [exampleMenus, setExampleMenus] = React.useState<MenuIdea[] | null>(null);
@@ -134,6 +135,8 @@ export default function ComposeScreen() {
   const [input, setInput] = React.useState('');
   const [isThinking, setIsThinking] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<QuickReply[]>([]);
+  const chatAbortRef = React.useRef<AbortController | null>(null);
+  const extractAbortRef = React.useRef<AbortController | null>(null);
 
   // 画像添付状態
   const [pendingAttachment, setPendingAttachment] = React.useState<ChatAttachment | null>(null);
@@ -235,12 +238,23 @@ export default function ComposeScreen() {
 
       let res: Response;
       try {
+        // 直前のチャット生成が残っていれば中断（連打/リセット対策）
+        try { chatAbortRef.current?.abort(); } catch {}
+        const controller = new AbortController();
+        chatAbortRef.current = controller;
         res = await fetch(`${API_BASE_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         });
       } catch (fetchErr: any) {
+        if (fetchErr?.name === 'AbortError') {
+          // #region agent log
+          console.log('[DEBUG-CHAT-B] Fetch aborted', {pendingAiId});
+          // #endregion
+          return;
+        }
         // #region agent log
         console.log('[DEBUG-CHAT-B] Fetch failed (network/CORS)', {error:String(fetchErr),errorName:fetchErr?.name});
         // #endregion
@@ -369,6 +383,10 @@ export default function ComposeScreen() {
     ]);
     
     try {
+      // 直前の抽出が残っていれば中断
+      try { extractAbortRef.current?.abort(); } catch {}
+      const controller = new AbortController();
+      extractAbortRef.current = controller;
       // 会話履歴からレシピを抽出するAPIを呼び出し
       const res = await fetch(`${API_BASE_URL}/api/extract-recipe`, {
         method: 'POST',
@@ -379,6 +397,7 @@ export default function ComposeScreen() {
             text: m.text,
           })),
         }),
+        signal: controller.signal,
       });
       
       const json = await res.json().catch(() => null);
@@ -421,6 +440,12 @@ export default function ComposeScreen() {
         );
       }
     } catch (e) {
+      if ((e as any)?.name === 'AbortError') {
+        // #region agent log
+        console.log('[DEBUG-EXTRACT] aborted');
+        // #endregion
+        return;
+      }
       console.error('Extract recipe error:', e);
       setMessages((prev) =>
         prev.map((m) =>
@@ -450,6 +475,15 @@ export default function ComposeScreen() {
           text: 'リセット',
           style: 'destructive',
           onPress: () => {
+            // 進行中リクエストを中断（リセット後にレスポンスが戻ってstateが巻き戻るのを防ぐ）
+            try { chatAbortRef.current?.abort(); } catch {}
+            chatAbortRef.current = null;
+            try { menuAbortRef.current?.abort(); } catch {}
+            menuAbortRef.current = null;
+            try { extractAbortRef.current?.abort(); } catch {}
+            extractAbortRef.current = null;
+            preGenerateMenusInFlightRef.current = false;
+
             setMessages([{ id: 'ai-hello', role: 'ai', text: generateGreeting() }]);
             setHasStarted(false);
             setSuggestions([]);
@@ -458,6 +492,13 @@ export default function ComposeScreen() {
             setIntroStatus('idle');
             setIntroErrorText(null);
             setIntroRetryUntilMs(null);
+            setInput('');
+            setPendingAttachment(null);
+            setShowAttachSheet(false);
+            setIsThinking(false);
+            setIsGeneratingDraft(false);
+            // 完全リセット：メニューキャッシュも破棄
+            setPreGeneratedMenus(null);
           },
         },
       ]
@@ -570,6 +611,10 @@ export default function ComposeScreen() {
 
     const loadCategoryMenuIdeas = async () => {
       preGenerateMenusInFlightRef.current = true;
+      // 直前のメニュー生成が残っていれば中断
+      try { menuAbortRef.current?.abort(); } catch {}
+      const controller = new AbortController();
+      menuAbortRef.current = controller;
       // #region agent log
       console.log('[DEBUG-MENU-ONDEMAND-A] API call starting', {url:`${API_BASE_URL}/api/quick-menu-idea`, promptCategory: promptId});
       // #endregion
@@ -580,6 +625,7 @@ export default function ComposeScreen() {
           // API側は promptCategory 単体だと menuIdea(単数) を返すため、
           // 3案(menuIdeas配列)が取れる allCategories で取得してクライアント側でカテゴリを抜き出す
           body: JSON.stringify({ allCategories: true }),
+          signal: controller.signal,
         });
         const json = await res.json().catch(() => null);
         // #region agent log
@@ -628,6 +674,12 @@ export default function ComposeScreen() {
         }
         setIntroStatus('error');
       } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          // #region agent log
+          console.log('[DEBUG-MENU-ONDEMAND-D] aborted', {promptId});
+          // #endregion
+          return;
+        }
         // #region agent log
         console.log('[DEBUG-MENU-ONDEMAND-D] API error caught', {promptId,error:String(e), message: e?.message});
         // #endregion

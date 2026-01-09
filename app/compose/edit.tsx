@@ -172,15 +172,9 @@ export default function RecipeEditScreen() {
 
   // 画像選択
   const handlePickImage = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handlePickImage',message:'[HYP-D] handlePickImage called',data:{platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     
     // Web環境ではAlert.alertが動作しないため、直接ライブラリから選択
     if (Platform.OS === 'web') {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handlePickImage:web',message:'[HYP-D] Web platform, calling pickFromLibrary directly',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       const attachment = await pickFromLibrary();
       if (attachment?.dataUrl) {
         setImageUri(attachment.dataUrl);
@@ -419,9 +413,6 @@ export default function RecipeEditScreen() {
 
       // 画像をSupabaseストレージにアップロード
       let uploadedImageUrl: string | null = null;
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handleSubmit',message:'[HYP-F] Image upload check',data:{hasImageUri:!!imageUri,imageUriLength:imageUri?.length||0,formDataImageUrl:formData.image_url},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
       
       if (imageUri) {
         try {
@@ -447,9 +438,6 @@ export default function RecipeEditScreen() {
               .from('recipe-images')
               .upload(fileName, blob, { contentType: mimeType, upsert: true });
             
-            // #region agent log
-            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handleSubmit:upload',message:'[HYP-F] Upload result',data:{uploadData:uploadData?.path,uploadError:uploadError?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
             
             if (!uploadError && uploadData) {
               // 公開URLを取得

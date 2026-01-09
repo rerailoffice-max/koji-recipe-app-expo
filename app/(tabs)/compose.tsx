@@ -32,9 +32,6 @@ import { supabase } from '@/lib/supabase';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
-// #region agent log
-console.log('[DEBUG-URL] API_BASE_URL resolved to:', API_BASE_URL);
-// #endregion
 
 // チャットボット（GOCHISOシェフ）アバター：アプリ内画像を使用（キャッシュ/外部依存を回避）
 const AI_AVATAR_SOURCE = require('../../assets/images/icon.png');
@@ -121,9 +118,6 @@ type MenuIdeaCard = {
 };
 
 function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
-  // #region agent log
-  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:normalizeMenuIdeaCard:entry',message:'normalizeMenuIdeaCard input',data:{input,hasTitle:typeof input?.title,hasSummary:typeof input?.summary,hasMenuIdea:typeof input?.menuIdea},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4-NormalizeInput'})}).catch(()=>{});
-  // #endregion
   const kojiType = String(input?.kojiType ?? '').trim();
   if (!kojiType) return null;
 
@@ -140,9 +134,6 @@ function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
     ? Math.round(input.timeMinutes)
     : undefined;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:normalizeMenuIdeaCard:parsed',message:'Parsed values',data:{kojiType,titleFromJson,summaryFromJson,keyIngredientsLen:keyIngredientsFromJson.length,stepsLen:stepsFromJson.length,timeMinutes,willUseNewApi:!!(titleFromJson && summaryFromJson)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5-ParsedValues'})}).catch(()=>{});
-  // #endregion
 
   if (titleFromJson && summaryFromJson) {
     return {
@@ -256,16 +247,10 @@ export default function ComposeScreen() {
   
   // 事前生成が完了したら、選択中のカテゴリの内容で更新
   React.useEffect(() => {
-    // #region agent log
-    console.log('[DEBUG-D] useEffect for status update', {selectedQuickPrompt,hasPreGeneratedMenus:preGeneratedMenus!==null});
-    // #endregion
     if (!selectedQuickPrompt) return;
     if (!preGeneratedMenus) return;
     
     const preGenerated = preGeneratedMenus[selectedQuickPrompt];
-    // #region agent log
-    console.log('[DEBUG-C] checking preGenerated', {selectedQuickPrompt,hasPreGenerated:!!preGenerated,hasMenuIdeas:!!preGenerated?.menuIdeas?.length});
-    // #endregion
     if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
       const normalized = preGenerated.menuIdeas
         .map(normalizeMenuIdeaCard)
@@ -337,9 +322,6 @@ export default function ComposeScreen() {
         isQuickRecipeMode,
       };
 
-      // #region agent log
-      console.log('[DEBUG-CHAT-A] Calling /api/chat', {apiUrl:`${API_BASE_URL}/api/chat`,payloadKeys:Object.keys(payload),messagesCount:payload.messages.length,isQuickRecipeMode:payload.isQuickRecipeMode});
-      // #endregion
 
       let res: Response;
       try {
@@ -355,33 +337,18 @@ export default function ComposeScreen() {
         });
       } catch (fetchErr: any) {
         if (fetchErr?.name === 'AbortError') {
-          // #region agent log
-          console.log('[DEBUG-CHAT-B] Fetch aborted', {pendingAiId});
-          // #endregion
           return;
         }
-        // #region agent log
-        console.log('[DEBUG-CHAT-B] Fetch failed (network/CORS)', {error:String(fetchErr),errorName:fetchErr?.name});
-        // #endregion
         throw fetchErr;
       }
 
-      // #region agent log
-      console.log('[DEBUG-CHAT-C] Fetch response received', {status:res.status,ok:res.ok,statusText:res.statusText});
-      // #endregion
 
       let json: any = null;
       try {
         json = await res.json();
       } catch (parseErr: any) {
-        // #region agent log
-        console.log('[DEBUG-CHAT-D] JSON parse failed', {error:String(parseErr)});
-        // #endregion
       }
 
-      // #region agent log
-      console.log('[DEBUG-CHAT-E] Response JSON parsed', {hasJson:!!json,success:json?.success,hasReply:typeof json?.reply==='string',replyType:typeof json?.reply,errorField:json?.error,suggestions:json?.suggestions});
-      // #endregion
 
       const aiText =
         res.ok && json?.success && typeof json?.reply === 'string'
@@ -399,9 +366,6 @@ export default function ComposeScreen() {
             }))
         : [];
 
-      // #region agent log
-      console.log('[DEBUG-SUG-H] Setting suggestions', {suggestionsCount:newSuggestions.length,suggestionsLabels:newSuggestions.map((s: any)=>s.label),rawSuggestions:json?.suggestions?.slice(0,3)});
-      // #endregion
 
       setMessages((prev) =>
         prev.map((m) => (m.id === pendingAiId ? { ...m, text: aiText } : m))
@@ -438,9 +402,6 @@ export default function ComposeScreen() {
   // クイックプロンプト経由での送信（isQuickRecipeMode: true）
   const handleSendWithQuickRecipeMode = React.useCallback(
     async (text: string) => {
-      // #region agent log
-      console.log('[DEBUG-SEND-G] handleSendWithQuickRecipeMode called', {textLen:text.length,isThinking,isGeneratingDraft,willReturn:!text.trim()||isThinking||isGeneratingDraft});
-      // #endregion
       if (!text.trim() || isThinking || isGeneratingDraft) return;
       await handleSendInternal(text, true, undefined);
     },
@@ -522,25 +483,16 @@ export default function ComposeScreen() {
         
         // 会話履歴から画像を探す（最新の画像を使用）
         let imageBase64 = '';
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:525',message:'[HYP-A] Searching for image in messages',data:{messageCount:currentMessages.length,messagesWithAttachments:currentMessages.filter(m=>m.attachments&&m.attachments.length>0).length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         for (let i = currentMessages.length - 1; i >= 0; i--) {
           const msg = currentMessages[i];
           if (msg.attachments && msg.attachments.length > 0) {
             const imgAttachment = msg.attachments.find(a => a.kind === 'image');
-            // #region agent log
-            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:532',message:'[HYP-E] Found attachment',data:{hasDataBase64:!!imgAttachment?.dataBase64,hasDataUrl:!!imgAttachment?.dataUrl,dataBase64Length:imgAttachment?.dataBase64?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
             if (imgAttachment && imgAttachment.dataBase64) {
               imageBase64 = imgAttachment.dataBase64;
               break;
             }
           }
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:542',message:'[HYP-B] imageBase64 result',data:{imageBase64Length:imageBase64.length,hasImage:imageBase64.length>0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         
         // フォーム画面へ遷移（抽出されたレシピデータと画像を渡す）
         setTimeout(() => {
@@ -569,9 +521,6 @@ export default function ComposeScreen() {
       }
     } catch (e) {
       if ((e as any)?.name === 'AbortError') {
-        // #region agent log
-        console.log('[DEBUG-EXTRACT] aborted');
-        // #endregion
         return;
       }
       console.error('Extract recipe error:', e);
@@ -595,14 +544,8 @@ export default function ComposeScreen() {
   // チャットをリセット
   const handleResetChat = React.useCallback(() => {
     const runId = `reset_${Date.now()}`;
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'A',location:'app/(tabs)/compose.tsx:handleResetChat',message:'reset_clicked',data:{platform:Platform.OS},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     const doReset = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'B',location:'app/(tabs)/compose.tsx:doReset',message:'reset_execute',data:{hasStarted,selectedQuickPrompt,preGeneratedMenus:preGeneratedMenus!==null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       // 進行中リクエストを中断（リセット後にレスポンスが戻ってstateが巻き戻るのを防ぐ）
       try { chatAbortRef.current?.abort(); } catch {}
@@ -645,9 +588,6 @@ export default function ComposeScreen() {
           text: 'リセット',
           style: 'destructive',
           onPress: () => {
-            // #region agent log
-            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'C',location:'app/(tabs)/compose.tsx:Alert.onPress',message:'reset_confirmed',data:{},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             doReset();
           },
         },
@@ -755,9 +695,6 @@ export default function ComposeScreen() {
   
   // メニュー例をタップして即レシピモードで送信
   const handleTapExample = React.useCallback((idea: MenuIdeaCard) => {
-    // #region agent log
-    console.log('[DEBUG-TAP-F] handleTapExample called', {title:idea.title,isThinking,isGeneratingDraft});
-    // #endregion
     const ingredientsText =
       idea.keyIngredients && idea.keyIngredients.length > 0
         ? `材料は ${idea.keyIngredients.join('、')} です。`
@@ -983,9 +920,6 @@ export default function ComposeScreen() {
                       )}
                       {introStatus === 'ready' && exampleMenus && exampleMenus.length > 0 && (
                         <View style={styles.exampleWrapper}>
-                          {/* #region agent log */}
-                          {(() => { fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:UI:render',message:'Rendering exampleMenus',data:{exampleMenusLength:exampleMenus.length,firstMenu:exampleMenus[0],allMenuTitles:exampleMenus.map(m=>m.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6-UIRender'})}).catch(()=>{}); return null; })()}
-                          {/* #endregion */}
                           <Text style={[styles.exampleLabel, { color: colors.primary }]}>
                             タップして送信 →
                           </Text>

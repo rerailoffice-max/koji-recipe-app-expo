@@ -383,7 +383,9 @@ export default function RecipeEditScreen() {
       // Web(PWA)では Alert のボタンコールバックが効かない/遷移が反映されにくいことがあるため、
       // 成功後は確実にホームへ戻す（必要ならアラートは簡易表示）
       if (Platform.OS === 'web') {
-        router.replace('/');
+        // replace('/') だけだと環境によって遷移が反映されないことがあるため、
+        // クエリを付けてURLを確実に変え、クライアント遷移を強制する
+        router.replace({ pathname: '/', params: { refresh: String(Date.now()) } } as any);
       } else {
         Alert.alert('投稿完了', 'レシピを投稿しました', [
           { text: 'OK', onPress: () => router.replace('/') },

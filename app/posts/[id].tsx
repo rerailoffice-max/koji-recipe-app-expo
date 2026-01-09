@@ -210,10 +210,10 @@ export default function PostDetailScreen() {
         if (error) throw error;
         
         if (Platform.OS === 'web') {
-          router.replace('/(tabs)');
+          router.back();
         } else {
           Alert.alert('削除完了', '投稿を削除しました', [
-            { text: 'OK', onPress: () => router.replace('/(tabs)') },
+            { text: 'OK', onPress: () => router.back() },
           ]);
         }
       } catch (e: any) {

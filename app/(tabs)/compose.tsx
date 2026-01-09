@@ -466,6 +466,48 @@ export default function ComposeScreen() {
 
   // チャットをリセット
   const handleResetChat = React.useCallback(() => {
+    const runId = `reset_${Date.now()}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'A',location:'app/(tabs)/compose.tsx:handleResetChat',message:'reset_clicked',data:{platform:Platform.OS},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    const doReset = () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'B',location:'app/(tabs)/compose.tsx:doReset',message:'reset_execute',data:{hasStarted,selectedQuickPrompt,preGeneratedMenus:preGeneratedMenus!==null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
+      // 進行中リクエストを中断（リセット後にレスポンスが戻ってstateが巻き戻るのを防ぐ）
+      try { chatAbortRef.current?.abort(); } catch {}
+      chatAbortRef.current = null;
+      try { menuAbortRef.current?.abort(); } catch {}
+      menuAbortRef.current = null;
+      try { extractAbortRef.current?.abort(); } catch {}
+      extractAbortRef.current = null;
+      preGenerateMenusInFlightRef.current = false;
+
+      setMessages([{ id: 'ai-hello', role: 'ai', text: generateGreeting() }]);
+      setHasStarted(false);
+      setSuggestions([]);
+      setSelectedQuickPrompt(null);
+      setExampleMenus(null);
+      setIntroStatus('idle');
+      setIntroErrorText(null);
+      setIntroRetryUntilMs(null);
+      setInput('');
+      setPendingAttachment(null);
+      setShowAttachSheet(false);
+      setIsThinking(false);
+      setIsGeneratingDraft(false);
+      // 完全リセット：メニューキャッシュも破棄
+      setPreGeneratedMenus(null);
+    };
+
+    // Web(PWA)は Alert.alert が効かない/確認が出ないことがあるため即リセット
+    if (Platform.OS === 'web') {
+      doReset();
+      return;
+    }
+
     Alert.alert(
       'チャットをリセット',
       '会話をリセットしますか？',
@@ -475,30 +517,10 @@ export default function ComposeScreen() {
           text: 'リセット',
           style: 'destructive',
           onPress: () => {
-            // 進行中リクエストを中断（リセット後にレスポンスが戻ってstateが巻き戻るのを防ぐ）
-            try { chatAbortRef.current?.abort(); } catch {}
-            chatAbortRef.current = null;
-            try { menuAbortRef.current?.abort(); } catch {}
-            menuAbortRef.current = null;
-            try { extractAbortRef.current?.abort(); } catch {}
-            extractAbortRef.current = null;
-            preGenerateMenusInFlightRef.current = false;
-
-            setMessages([{ id: 'ai-hello', role: 'ai', text: generateGreeting() }]);
-            setHasStarted(false);
-            setSuggestions([]);
-            setSelectedQuickPrompt(null);
-            setExampleMenus(null);
-            setIntroStatus('idle');
-            setIntroErrorText(null);
-            setIntroRetryUntilMs(null);
-            setInput('');
-            setPendingAttachment(null);
-            setShowAttachSheet(false);
-            setIsThinking(false);
-            setIsGeneratingDraft(false);
-            // 完全リセット：メニューキャッシュも破棄
-            setPreGeneratedMenus(null);
+            // #region agent log
+            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'C',location:'app/(tabs)/compose.tsx:Alert.onPress',message:'reset_confirmed',data:{},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+            doReset();
           },
         },
       ]

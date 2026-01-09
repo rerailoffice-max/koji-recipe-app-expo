@@ -197,21 +197,38 @@ export default function SettingsScreen() {
 
   // ログアウト
   const handleLogout = () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            await supabase.auth.signOut();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    const runId = `logout_${Date.now()}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'LOGOUT',location:'app/settings.tsx:handleLogout',message:'logout_clicked',data:{platform:Platform.OS},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    const doLogout = async () => {
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'LOGOUT',location:'app/settings.tsx:doLogout',message:'signOut_start',data:{},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        await supabase.auth.signOut();
+        const { data: { session } } = await supabase.auth.getSession();
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId,hypothesisId:'LOGOUT',location:'app/settings.tsx:doLogout',message:'signOut_done',data:{hasSession:!!session},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      } catch (e: any) {
+        console.error('Logout error:', e);
+      } finally {
+        router.replace('/login');
+      }
+    };
+
+    // Web(PWA)では Alert のボタンコールバックが効かない/確認が出ないことがあるため即ログアウト
+    if (Platform.OS === 'web') {
+      void doLogout();
+      return;
+    }
+
+    Alert.alert('ログアウト', 'ログアウトしますか？', [
+      { text: 'キャンセル', style: 'cancel' },
+      { text: 'ログアウト', style: 'destructive', onPress: () => void doLogout() },
+    ]);
   };
 
   // アカウント削除
@@ -248,6 +265,7 @@ export default function SettingsScreen() {
 
   // 内部ページに遷移
   const navigateTo = (path: string) => {
+    // login画面の「利用規約/プライバシーポリシー」と同じく、アプリ内ページへ遷移
     router.push(path as any);
   };
 

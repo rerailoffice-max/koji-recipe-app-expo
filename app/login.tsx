@@ -148,9 +148,9 @@ export default function LoginScreen() {
     router.replace('/(tabs)');
   };
 
-  // リンクを開く
+  // リンクを開く（設定画面と同じくアプリ内ページへ）
   const openLink = (path: string) => {
-    Linking.openURL(`${API_BASE_URL}${path}`);
+    router.push(path as any);
   };
 
   const handleEmailSubmit = async () => {

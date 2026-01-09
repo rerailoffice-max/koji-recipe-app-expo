@@ -946,9 +946,9 @@ export default function ComposeScreen() {
                           </Text>
                           {exampleMenus.map((menu, index) => {
                             // 麹タイプに応じた絵文字とラベル
-                            const kojiLabel = menu.kojiType.includes('旨塩') ? '🧂 旨塩風'
-                              : menu.kojiType.includes('中華') ? '🍜 中華風'
-                              : '🍲 コンソメ風';
+                            const kojiLabel = menu.kojiType.includes('旨塩') ? '🧅 旨塩'
+                              : menu.kojiType.includes('コンソメ') ? '🥕 コンソメ'
+                              : '🧄 中華';
                             
                             return (
                               <View key={index} style={styles.exampleCardWrapper}>

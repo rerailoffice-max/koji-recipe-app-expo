@@ -48,9 +48,9 @@ interface FormData {
 
 // 麹の種類
 const KOJI_TYPES = [
-  { value: '中華麹', label: '中華風こうじ' },
-  { value: 'コンソメ麹', label: 'コンソメ風こうじ' },
-  { value: 'たまねぎ麹', label: '旨塩風こうじ' },
+  { value: 'たまねぎ麹', label: '🧅 旨塩' },
+  { value: 'コンソメ麹', label: '🥕 コンソメ' },
+  { value: '中華麹', label: '🧄 中華' },
 ];
 
 // 難易度

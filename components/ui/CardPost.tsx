@@ -31,9 +31,12 @@ interface CardPostProps {
 // 麹タイプの表示名変換
 function toKojiDisplayName(kojiType: string): string {
   const map: Record<string, string> = {
-    'たまねぎこうじ': '旨塩風こうじ調味料',
-    '中華こうじ': '中華風こうじ調味料',
-    'コンソメこうじ': 'コンソメ風こうじ調味料',
+    'たまねぎこうじ': '🧅 旨塩',
+    'たまねぎ麹': '🧅 旨塩',
+    '中華こうじ': '🧄 中華',
+    '中華麹': '🧄 中華',
+    'コンソメこうじ': '🥕 コンソメ',
+    'コンソメ麹': '🥕 コンソメ',
   };
   return map[kojiType] || kojiType;
 }

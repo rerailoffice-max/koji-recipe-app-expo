@@ -210,7 +210,12 @@ export default function PostDetailScreen() {
         if (error) throw error;
         
         if (Platform.OS === 'web') {
-          router.back();
+          // Web環境では履歴を使って戻る、履歴がなければプロフィールへ
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            router.replace('/(tabs)/profile');
+          }
         } else {
           Alert.alert('削除完了', '投稿を削除しました', [
             { text: 'OK', onPress: () => router.back() },

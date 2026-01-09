@@ -36,6 +36,9 @@ const API_BASE_URL = 'https://api.gochisokoji.com';
 console.log('[DEBUG-URL] API_BASE_URL resolved to:', API_BASE_URL);
 // #endregion
 
+// チャットボット（GOCHISOシェフ）アバター：アプリ内画像を使用（キャッシュ/外部依存を回避）
+const AI_AVATAR_SOURCE = require('../../assets/images/icon.png');
+
 // 下書きの型
 interface Draft {
   id: string;
@@ -807,7 +810,7 @@ export default function ComposeScreen() {
       <ChatMessageBubble
         role={item.role}
         text={item.text}
-        aiAvatarSrc={`${API_BASE_URL}/ai/kochan.png`}
+        aiAvatarSrc={AI_AVATAR_SOURCE}
         attachments={item.attachments}
       />
     ),

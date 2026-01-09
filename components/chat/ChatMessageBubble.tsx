@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, type ImageSourcePropType } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFontSize, scaledFontSize } from '@/hooks/use-font-size';
@@ -15,7 +15,8 @@ export interface ChatAttachment {
 export interface ChatMessageBubbleProps {
   role: 'ai' | 'user';
   text: string;
-  aiAvatarSrc?: string | null;
+  /** AIアバター。URL文字列 or require() の画像を許容 */
+  aiAvatarSrc?: string | ImageSourcePropType | null;
   attachments?: ChatAttachment[];
 }
 
@@ -37,7 +38,7 @@ export function ChatMessageBubble({
         <View style={styles.avatarWrapper}>
           {aiAvatarSrc ? (
             <Image
-              source={{ uri: aiAvatarSrc }}
+              source={typeof aiAvatarSrc === 'string' ? { uri: aiAvatarSrc } : aiAvatarSrc}
               style={styles.avatar}
               resizeMode="cover"
             />

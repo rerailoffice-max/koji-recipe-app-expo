@@ -97,8 +97,78 @@ function generateGreeting(): string {
 }
 
 // 事前生成されたメニュー案の型（各カテゴリで3つの麹タイプのメニュー案）
-type MenuIdea = { menuIdea: string; kojiType: string };
+type MenuIdea = {
+  // 新API（JSON）
+  title?: string;
+  summary?: string;
+  keyIngredients?: string[];
+  steps?: string[];
+  timeMinutes?: number;
+  // 旧API（1行）
+  menuIdea?: string;
+  // 共通
+  kojiType: string;
+};
 type PreGeneratedMenus = Record<string, { menuIdeas: MenuIdea[] }>;
+
+type MenuIdeaCard = {
+  kojiType: string;
+  title: string;
+  summary: string;
+  keyIngredients: string[];
+  steps: string[];
+  timeMinutes?: number;
+};
+
+function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
+  // #region agent log
+  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:normalizeMenuIdeaCard:entry',message:'normalizeMenuIdeaCard input',data:{input,hasTitle:typeof input?.title,hasSummary:typeof input?.summary,hasMenuIdea:typeof input?.menuIdea},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4-NormalizeInput'})}).catch(()=>{});
+  // #endregion
+  const kojiType = String(input?.kojiType ?? '').trim();
+  if (!kojiType) return null;
+
+  // 新API優先
+  const titleFromJson = typeof input.title === 'string' ? input.title.trim() : '';
+  const summaryFromJson = typeof input.summary === 'string' ? input.summary.trim() : '';
+  const keyIngredientsFromJson = Array.isArray(input.keyIngredients)
+    ? input.keyIngredients.map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, 6)
+    : [];
+  const stepsFromJson = Array.isArray(input.steps)
+    ? input.steps.map((x) => String(x ?? '').trim()).filter(Boolean).slice(0, 6)
+    : [];
+  const timeMinutes = typeof input.timeMinutes === 'number' && Number.isFinite(input.timeMinutes)
+    ? Math.round(input.timeMinutes)
+    : undefined;
+
+  // #region agent log
+  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:normalizeMenuIdeaCard:parsed',message:'Parsed values',data:{kojiType,titleFromJson,summaryFromJson,keyIngredientsLen:keyIngredientsFromJson.length,stepsLen:stepsFromJson.length,timeMinutes,willUseNewApi:!!(titleFromJson && summaryFromJson)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5-ParsedValues'})}).catch(()=>{});
+  // #endregion
+
+  if (titleFromJson && summaryFromJson) {
+    return {
+      kojiType,
+      title: titleFromJson,
+      summary: summaryFromJson,
+      keyIngredients: keyIngredientsFromJson,
+      steps: stepsFromJson,
+      ...(timeMinutes ? { timeMinutes } : {}),
+    };
+  }
+
+  // 旧API（1行）をできるだけ分解して表示する
+  const legacy = typeof input.menuIdea === 'string' ? input.menuIdea.trim() : '';
+  if (!legacy) return null;
+  const [t0, ...rest] = legacy.split('。');
+  const title = (t0 || legacy).trim();
+  const summary = rest.join('。').trim() || legacy;
+  return {
+    kojiType,
+    title,
+    summary,
+    keyIngredients: [],
+    steps: [],
+  };
+}
 
 export default function ComposeScreen() {
   const colorScheme = useColorScheme();
@@ -118,7 +188,7 @@ export default function ComposeScreen() {
   const menuAbortRef = React.useRef<AbortController | null>(null);
   
   // メニュー例（クイックプロンプト選択時に表示する3つの候補）
-  const [exampleMenus, setExampleMenus] = React.useState<MenuIdea[] | null>(null);
+  const [exampleMenus, setExampleMenus] = React.useState<MenuIdeaCard[] | null>(null);
   const [introStatus, setIntroStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [introErrorText, setIntroErrorText] = React.useState<string | null>(null);
   const [introRetryUntilMs, setIntroRetryUntilMs] = React.useState<number | null>(null);
@@ -170,8 +240,13 @@ export default function ComposeScreen() {
     console.log('[DEBUG-C] checking preGenerated', {selectedQuickPrompt,hasPreGenerated:!!preGenerated,hasMenuIdeas:!!preGenerated?.menuIdeas?.length});
     // #endregion
     if (preGenerated?.menuIdeas && preGenerated.menuIdeas.length > 0) {
-      setExampleMenus(preGenerated.menuIdeas);
-      setIntroStatus('ready');
+      const normalized = preGenerated.menuIdeas
+        .map(normalizeMenuIdeaCard)
+        .filter((x): x is MenuIdeaCard => !!x);
+      if (normalized.length > 0) {
+        setExampleMenus(normalized);
+        setIntroStatus('ready');
+      }
     }
   }, [preGeneratedMenus, selectedQuickPrompt]);
 
@@ -644,15 +719,25 @@ export default function ComposeScreen() {
         const json = await res.json().catch(() => null);
         // #region agent log
         console.log('[DEBUG-MENU-ONDEMAND-B] API response received', {status:res.status,ok:res.ok,success:json?.success,hasMenuIdeas:Array.isArray(json?.menuIdeas),hasResults:!!json?.results});
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:APIResponse',message:'Raw API response',data:{status:res.status,success:json?.success,menuIdeasLength:json?.menuIdeas?.length,firstMenuItem:json?.menuIdeas?.[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1-RawResponse'})}).catch(()=>{});
         // #endregion
 
         const menuIdeasFromBody =
           json?.menuIdeas && Array.isArray(json.menuIdeas)
             ? (json.menuIdeas as MenuIdea[])
+                .map(normalizeMenuIdeaCard)
+                .filter((x): x is MenuIdeaCard => !!x)
             : null;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:NormalizedMenus',message:'After normalizeMenuIdeaCard',data:{menuIdeasFromBodyLength:menuIdeasFromBody?.length,firstNormalized:menuIdeasFromBody?.[0],allNormalized:menuIdeasFromBody},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2-NormalizeResult'})}).catch(()=>{});
+        // #endregion
 
         if (res.ok && json?.success && menuIdeasFromBody && menuIdeasFromBody.length > 0) {
           // 毎回のバリエーション確保のため、結果キャッシュ（preGeneratedMenus）は使わない
+          // #region agent log
+          fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:setExampleMenus',message:'Setting exampleMenus state',data:{count:menuIdeasFromBody.length,items:menuIdeasFromBody},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3-StateUpdate'})}).catch(()=>{});
+          // #endregion
           setExampleMenus(menuIdeasFromBody);
           setIntroStatus('ready');
           return;
@@ -708,11 +793,21 @@ export default function ComposeScreen() {
   }, [preGeneratedMenus]);
   
   // メニュー例をタップして即レシピモードで送信
-  const handleTapExample = React.useCallback((text: string) => {
+  const handleTapExample = React.useCallback((idea: MenuIdeaCard) => {
     // #region agent log
-    console.log('[DEBUG-TAP-F] handleTapExample called', {text:text.slice(0,50),isThinking,isGeneratingDraft});
+    console.log('[DEBUG-TAP-F] handleTapExample called', {title:idea.title,isThinking,isGeneratingDraft});
     // #endregion
-    handleSendWithQuickRecipeMode(text);
+    const ingredientsText =
+      idea.keyIngredients && idea.keyIngredients.length > 0
+        ? `材料は ${idea.keyIngredients.join('、')} です。`
+        : '';
+    const stepsText =
+      idea.steps && idea.steps.length > 0
+        ? `手順は ${idea.steps.slice(0, 4).join(' / ')}。`
+        : '';
+    const timeText = typeof idea.timeMinutes === 'number' ? `目安 ${idea.timeMinutes}分。` : '';
+    const msg = `「${idea.title}」を作りたいです。${idea.kojiType}を使って、${ingredientsText}${timeText}\n${idea.summary}\n${stepsText}\n分量（2人分）とコツも教えて。`;
+    handleSendWithQuickRecipeMode(msg);
   }, [handleSendWithQuickRecipeMode, isThinking, isGeneratingDraft]);
 
   // メニュー生成を再試行
@@ -732,6 +827,8 @@ export default function ComposeScreen() {
       const menuIdeasFromBody =
         json?.menuIdeas && Array.isArray(json.menuIdeas)
           ? (json.menuIdeas as MenuIdea[])
+              .map(normalizeMenuIdeaCard)
+              .filter((x): x is MenuIdeaCard => !!x)
           : null;
       if (res.ok && json?.success && menuIdeasFromBody && menuIdeasFromBody.length > 0) {
         setExampleMenus(menuIdeasFromBody);
@@ -925,6 +1022,9 @@ export default function ComposeScreen() {
                       )}
                       {introStatus === 'ready' && exampleMenus && exampleMenus.length > 0 && (
                         <View style={styles.exampleWrapper}>
+                          {/* #region agent log */}
+                          {(() => { fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:UI:render',message:'Rendering exampleMenus',data:{exampleMenusLength:exampleMenus.length,firstMenu:exampleMenus[0],allMenuTitles:exampleMenus.map(m=>m.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6-UIRender'})}).catch(()=>{}); return null; })()}
+                          {/* #endregion */}
                           <Text style={[styles.exampleLabel, { color: colors.primary }]}>
                             タップして送信 →
                           </Text>
@@ -940,7 +1040,7 @@ export default function ComposeScreen() {
                                   {kojiLabel}
                                 </Text>
                                 <Pressable
-                                  onPress={() => handleTapExample(menu.menuIdea)}
+                                  onPress={() => handleTapExample(menu)}
                                   disabled={isThinking || isGeneratingDraft}
                                   style={[
                                     styles.exampleCard,
@@ -950,9 +1050,50 @@ export default function ComposeScreen() {
                                     },
                                   ]}
                                 >
-                                  <Text style={[styles.exampleText, { color: colors.text }]}>
-                                    {menu.menuIdea}
-                                  </Text>
+                                  <View style={styles.exampleCardInner}>
+                                    <View style={styles.exampleCardHeader}>
+                                      <Text style={[styles.exampleTitle, { color: colors.text }]} numberOfLines={2}>
+                                        {menu.title}
+                                      </Text>
+                                      {typeof menu.timeMinutes === 'number' && (
+                                        <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
+                                          {menu.timeMinutes}分
+                                        </Text>
+                                      )}
+                                    </View>
+                                    <Text style={[styles.exampleText, { color: colors.text }]} numberOfLines={4}>
+                                      {menu.summary}
+                                    </Text>
+                                    {menu.keyIngredients.length > 0 && (
+                                      <View style={styles.ingredientsRow}>
+                                        {menu.keyIngredients.slice(0, 5).map((ing) => (
+                                          <View
+                                            key={ing}
+                                            style={[
+                                              styles.ingredientChip,
+                                              {
+                                                borderColor: `${colors.primary}4D`,
+                                                backgroundColor: `${colors.primary}0D`,
+                                              },
+                                            ]}
+                                          >
+                                            <Text style={[styles.ingredientChipText, { color: colors.primary }]}>
+                                              {ing}
+                                            </Text>
+                                          </View>
+                                        ))}
+                                      </View>
+                                    )}
+                                    {menu.steps.length > 0 && (
+                                      <View style={styles.stepsWrapper}>
+                                        {menu.steps.slice(0, 3).map((s, i) => (
+                                          <Text key={`${i}-${s}`} style={[styles.stepText, { color: colors.mutedForeground }]}>
+                                            {i + 1}. {s}
+                                          </Text>
+                                        ))}
+                                      </View>
+                                    )}
+                                  </View>
                                 </Pressable>
                               </View>
                             );
@@ -1193,6 +1334,25 @@ const styles = StyleSheet.create({
   exampleCardWrapper: {
     marginBottom: Spacing.md,
   },
+  exampleCardInner: {
+    gap: Spacing.xs,
+  },
+  exampleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  exampleTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  exampleMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   kojiLabel: {
     fontSize: FontSize.sm,
     fontWeight: '600',
@@ -1213,6 +1373,28 @@ const styles = StyleSheet.create({
   exampleText: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  ingredientsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  ingredientChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  ingredientChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  stepsWrapper: {
+    gap: 2,
+  },
+  stepText: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   modalOverlay: {
     flex: 1,

@@ -120,11 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    ...Platform.select({
-      ios: Shadows.sm,
-      android: { elevation: 4 },
-      default: {},
-    }),
+    ...(Platform.OS === 'ios' ? Shadows.sm : Platform.OS === 'android' ? { elevation: 4 } : {}),
   },
   attachmentPreview: {
     paddingBottom: Spacing.sm,

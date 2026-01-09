@@ -300,7 +300,7 @@ export default function PostDetailScreen() {
                 disabled={isDeleting}
                 style={[styles.appBarButton, { opacity: isDeleting ? 0.5 : 1 }]}
               >
-                <Text style={[styles.deleteButtonText, { color: colors.destructive || '#DC2626' }]}>
+                <Text style={[styles.deleteButtonText, { color: '#DC2626' }]}>
                   削除
                 </Text>
               </Pressable>

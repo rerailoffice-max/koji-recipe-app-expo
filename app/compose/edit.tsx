@@ -383,7 +383,6 @@ export default function RecipeEditScreen() {
       // Web(PWA)では Alert のボタンコールバックが効かない/遷移が反映されにくいことがあるため、
       // 成功後は確実にホームへ戻す（必要ならアラートは簡易表示）
       if (Platform.OS === 'web') {
-        Alert.alert('投稿完了', 'レシピを投稿しました');
         router.replace('/');
       } else {
         Alert.alert('投稿完了', 'レシピを投稿しました', [

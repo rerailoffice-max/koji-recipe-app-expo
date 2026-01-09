@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { supabase, API_BASE_URL } from '@/lib/supabase';
@@ -163,6 +164,14 @@ export default function MyRecipesScreen() {
       fetchRecipes();
     }
   }, [user, fetchRecipes]);
+
+  // 投稿/下書き保存後に戻ったとき、リロード無しでマイレシピを最新化
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) fetchRecipes(true);
+      return undefined;
+    }, [user, fetchRecipes])
+  );
 
   const handleRecipePress = (id: string) => {
     router.push(`/posts/${id}` as any);

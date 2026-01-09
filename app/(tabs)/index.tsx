@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Text, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { Colors, Spacing } from '@/constants/theme';
@@ -241,6 +242,15 @@ export default function HomeScreen() {
   React.useEffect(() => {
     fetchWeeklyRecipes();
   }, [fetchWeeklyRecipes]);
+
+  // 投稿/下書き作成後に戻ってきたとき、リロード無しで一覧を最新化
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchPosts(true);
+      fetchWeeklyRecipes();
+      return undefined;
+    }, [fetchPosts, fetchWeeklyRecipes])
+  );
 
   // 保存トグル
   const handleToggleSave = React.useCallback(async (postId: string) => {

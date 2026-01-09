@@ -36,6 +36,7 @@ export default function MyRecipesScreen() {
   const router = useRouter();
 
   const [user, setUser] = React.useState<User | null>(null);
+  const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -52,6 +53,22 @@ export default function MyRecipesScreen() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
+        
+        // public.usersからアバターURLを取得
+        if (user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile?.avatar_url) {
+            setUserAvatarUrl(profile.avatar_url);
+          } else {
+            // フォールバック: user_metadataから取得
+            setUserAvatarUrl(user.user_metadata?.avatar_url || null);
+          }
+        }
       } catch (e) {
         console.error('Get user error:', e);
       } finally {
@@ -67,6 +84,25 @@ export default function MyRecipesScreen() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 画面フォーカス時にアバターを再取得
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshAvatar = async () => {
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from('users')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.avatar_url) {
+          setUserAvatarUrl(profile.avatar_url);
+        }
+      };
+      refreshAvatar();
+    }, [user])
+  );
 
   // レシピデータを取得
   const fetchRecipes = React.useCallback(async (refresh = false) => {
@@ -177,7 +213,6 @@ export default function MyRecipesScreen() {
     router.push(`/posts/${id}` as any);
   };
 
-  const userAvatar = user?.user_metadata?.avatar_url;
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'ゲスト';
 
   // ローディング中は読み込みインジケーターを表示
@@ -206,8 +241,8 @@ export default function MyRecipesScreen() {
           {/* ユーザーアバター + タイトル */}
           <View style={styles.headerLeft}>
             <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              {userAvatar ? (
-                <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+              {userAvatarUrl ? (
+                <Image source={{ uri: userAvatarUrl }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarText}>Re</Text>
               )}

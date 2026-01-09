@@ -148,9 +148,15 @@ export default function RecipeEditScreen() {
       });
       
       // チャットから渡された画像を設定
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:147',message:'[HYP-C] Checking image_base64 param',data:{hasImageBase64:!!params.image_base64,imageBase64Length:params.image_base64?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (params.image_base64) {
         // Base64データをData URLに変換（既にData URL形式の場合はそのまま使用）
         const base64 = params.image_base64;
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:153',message:'[HYP-C] Setting imageUri',data:{startsWithData:base64.startsWith('data:'),base64Length:base64.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         if (base64.startsWith('data:')) {
           setImageUri(base64);
         } else {
@@ -168,6 +174,22 @@ export default function RecipeEditScreen() {
 
   // 画像選択
   const handlePickImage = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handlePickImage',message:'[HYP-D] handlePickImage called',data:{platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    
+    // Web環境ではAlert.alertが動作しないため、直接ライブラリから選択
+    if (Platform.OS === 'web') {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handlePickImage:web',message:'[HYP-D] Web platform, calling pickFromLibrary directly',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      const attachment = await pickFromLibrary();
+      if (attachment?.dataUrl) {
+        setImageUri(attachment.dataUrl);
+      }
+      return;
+    }
+    
     Alert.alert(
       '写真を選択',
       '',
@@ -293,6 +315,41 @@ export default function RecipeEditScreen() {
         .from('users')
         .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
 
+      // 画像をSupabaseストレージにアップロード
+      let uploadedImageUrl: string | null = null;
+      if (imageUri) {
+        try {
+          const base64Match = imageUri.match(/^data:([^;]+);base64,(.+)$/);
+          if (base64Match) {
+            const mimeType = base64Match[1];
+            const base64Data = base64Match[2];
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const fileName = `${user.id}/${Date.now()}.${ext}`;
+            
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('recipe-images')
+              .upload(fileName, blob, { contentType: mimeType, upsert: true });
+            
+            if (!uploadError && uploadData) {
+              const { data: { publicUrl } } = supabase.storage
+                .from('recipe-images')
+                .getPublicUrl(uploadData.path);
+              uploadedImageUrl = publicUrl;
+            }
+          }
+        } catch (uploadErr) {
+          console.error('Image upload error:', uploadErr);
+        }
+      }
+
       const postData = {
         user_id: user.id,
         title: cleanData.title,
@@ -301,7 +358,7 @@ export default function RecipeEditScreen() {
         difficulty: cleanData.difficulty,
         ingredients: cleanData.ingredients,
         steps: cleanData.steps,
-        image_url: formData.image_url,
+        image_url: uploadedImageUrl || formData.image_url,
         is_public: false,
         is_ai_generated: false,
       };
@@ -362,6 +419,54 @@ export default function RecipeEditScreen() {
         .from('users')
         .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
 
+      // 画像をSupabaseストレージにアップロード
+      let uploadedImageUrl: string | null = null;
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handleSubmit',message:'[HYP-F] Image upload check',data:{hasImageUri:!!imageUri,imageUriLength:imageUri?.length||0,formDataImageUrl:formData.image_url},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+      
+      if (imageUri) {
+        try {
+          // Base64データを抽出
+          const base64Match = imageUri.match(/^data:([^;]+);base64,(.+)$/);
+          if (base64Match) {
+            const mimeType = base64Match[1];
+            const base64Data = base64Match[2];
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const fileName = `${user.id}/${Date.now()}.${ext}`;
+            
+            // Base64をBlobに変換
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+            
+            // Supabaseストレージにアップロード
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('recipe-images')
+              .upload(fileName, blob, { contentType: mimeType, upsert: true });
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'edit.tsx:handleSubmit:upload',message:'[HYP-F] Upload result',data:{uploadData:uploadData?.path,uploadError:uploadError?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
+            
+            if (!uploadError && uploadData) {
+              // 公開URLを取得
+              const { data: { publicUrl } } = supabase.storage
+                .from('recipe-images')
+                .getPublicUrl(uploadData.path);
+              uploadedImageUrl = publicUrl;
+            }
+          }
+        } catch (uploadErr) {
+          console.error('Image upload error:', uploadErr);
+          // 画像アップロード失敗しても投稿は続行
+        }
+      }
+
       const postData = {
         user_id: user.id,
         title: cleanData.title,
@@ -370,7 +475,7 @@ export default function RecipeEditScreen() {
         difficulty: cleanData.difficulty,
         ingredients: cleanData.ingredients,
         steps: cleanData.steps,
-        image_url: formData.image_url,
+        image_url: uploadedImageUrl || formData.image_url,
         is_public: true,
         is_ai_generated: false,
       };

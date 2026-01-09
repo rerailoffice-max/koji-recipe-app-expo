@@ -522,16 +522,25 @@ export default function ComposeScreen() {
         
         // 会話履歴から画像を探す（最新の画像を使用）
         let imageBase64 = '';
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:525',message:'[HYP-A] Searching for image in messages',data:{messageCount:currentMessages.length,messagesWithAttachments:currentMessages.filter(m=>m.attachments&&m.attachments.length>0).length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         for (let i = currentMessages.length - 1; i >= 0; i--) {
           const msg = currentMessages[i];
           if (msg.attachments && msg.attachments.length > 0) {
             const imgAttachment = msg.attachments.find(a => a.kind === 'image');
+            // #region agent log
+            fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:532',message:'[HYP-E] Found attachment',data:{hasDataBase64:!!imgAttachment?.dataBase64,hasDataUrl:!!imgAttachment?.dataUrl,dataBase64Length:imgAttachment?.dataBase64?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
             if (imgAttachment && imgAttachment.dataBase64) {
               imageBase64 = imgAttachment.dataBase64;
               break;
             }
           }
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compose.tsx:542',message:'[HYP-B] imageBase64 result',data:{imageBase64Length:imageBase64.length,hasImage:imageBase64.length>0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         
         // フォーム画面へ遷移（抽出されたレシピデータと画像を渡す）
         setTimeout(() => {

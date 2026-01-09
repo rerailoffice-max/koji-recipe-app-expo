@@ -63,9 +63,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   side: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   title: {
     flex: 1,

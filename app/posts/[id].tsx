@@ -185,6 +185,11 @@ export default function PostDetailScreen() {
   };
 
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
+  // #region agent log
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'posts/[id].tsx:isOwner',message:'[HYP-I] isOwner check',data:{isOwner,currentUserId,postUserId:post?.user_id,match:currentUserId===post?.user_id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'I'})}).catch(()=>{});
+  }, [isOwner, currentUserId, post?.user_id]);
+  // #endregion
   const ingredients = post?.ingredients ?? [];
   const steps = post?.steps ?? [];
   const [isDeleting, setIsDeleting] = React.useState(false);

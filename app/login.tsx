@@ -209,6 +209,27 @@ export default function LoginScreen() {
         }
       }
 
+      // public.users にプロフィール行を作成/更新（posts.user_id のFKと埋め込みのため）
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { error: upsertErr } = await supabase
+            .from('users')
+            .upsert(
+              {
+                id: user.id,
+                email: user.email ?? trimmedEmail,
+              },
+              { onConflict: 'id' }
+            );
+          if (upsertErr) {
+            console.warn('Profile upsert failed:', upsertErr);
+          }
+        }
+      } catch (profileErr) {
+        console.warn('Profile upsert exception:', profileErr);
+      }
+
       router.replace('/(tabs)');
     } catch (e: any) {
       const apiUrl = `${API_BASE_URL}/api/auth/${isSignup ? 'email-signup' : 'email-login'}`;

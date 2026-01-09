@@ -266,12 +266,20 @@ export default function RecipeEditScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert('エラー', 'ログインが必要です');
+        Alert.alert('ログインが必要です', '下書きを保存するにはログインが必要です。', [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: 'ログイン', onPress: () => router.push('/login') },
+        ]);
         router.push('/login');
         return;
       }
 
       const cleanData = buildCleanData();
+
+      // posts.user_id が public.users を参照するため、プロフィール行を事前に作成/更新
+      await supabase
+        .from('users')
+        .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
 
       const postData = {
         user_id: user.id,
@@ -328,12 +336,19 @@ export default function RecipeEditScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert('エラー', 'ログインが必要です');
-        router.push('/login');
+        Alert.alert('ログインが必要です', '投稿するにはログインが必要です。', [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: 'ログイン', onPress: () => router.push('/login') },
+        ]);
         return;
       }
 
       const cleanData = buildCleanData();
+
+      // posts.user_id が public.users を参照するため、プロフィール行を事前に作成/更新
+      await supabase
+        .from('users')
+        .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
 
       const postData = {
         user_id: user.id,
@@ -601,7 +616,12 @@ export default function RecipeEditScreen() {
             ]}
           >
             {isSavingDraft ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <View style={styles.actionButtonContent}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.actionButtonText, { color: colors.primary }]}>
+                  下書き作成中…
+                </Text>
+              </View>
             ) : (
               <Text style={[styles.actionButtonText, { color: colors.primary }]}>
                 下書き保存
@@ -618,7 +638,12 @@ export default function RecipeEditScreen() {
             ]}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
+              <View style={styles.actionButtonContent}>
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+                <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
+                  投稿中…
+                </Text>
+              </View>
             ) : (
               <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
                 投稿する
@@ -788,6 +813,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
   },
   draftButton: {
     borderWidth: 2,

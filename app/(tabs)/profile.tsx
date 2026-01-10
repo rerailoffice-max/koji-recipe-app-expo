@@ -218,8 +218,65 @@ export default function MyRecipesScreen() {
   // ローディング中は読み込みインジケーターを表示
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // ログアウト状態ならログイン促進画面を全面表示
+  if (!user) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* ヘッダー */}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.background,
+              borderBottomColor: colors.border,
+              paddingTop: insets.top,
+            },
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.avatar, { backgroundColor: colors.muted }]}>
+                <IconSymbol name="person" size={20} color={colors.mutedForeground} />
+              </View>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>マイページ</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ログイン促進画面 */}
+        <View style={styles.loginPromptFullScreen}>
+          <View style={[styles.loginPromptIcon, { backgroundColor: colors.surface }]}>
+            <IconSymbol name="person.crop.circle" size={64} color={colors.mutedForeground} />
+          </View>
+          <Text style={[styles.loginPromptTitle, { color: colors.text }]}>
+            ログインしてください
+          </Text>
+          <Text style={[styles.loginPromptDescription, { color: colors.mutedForeground }]}>
+            レシピの保存・作成・下書きには{'\n'}ログインが必要です
+          </Text>
+          <Pressable
+            style={[styles.loginButtonLarge, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/login')}
+          >
+            <Text style={[styles.loginButtonLargeText, { color: colors.primaryForeground }]}>
+              ログインする
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.guestLink}
+            onPress={() => router.push('/(tabs)/')}
+          >
+            <Text style={[styles.guestLinkText, { color: colors.mutedForeground }]}>
+              ログインせずにレシピを見る
+            </Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -244,7 +301,9 @@ export default function MyRecipesScreen() {
               {userAvatarUrl ? (
                 <Image source={{ uri: userAvatarUrl }} style={styles.avatarImage} />
               ) : (
-                <Text style={styles.avatarText}>Re</Text>
+                <Text style={styles.avatarText}>
+                  {userName.charAt(0).toUpperCase()}
+                </Text>
               )}
             </View>
             <Text style={[styles.headerTitle, { color: colors.text }]}>マイレシピ</Text>
@@ -258,7 +317,6 @@ export default function MyRecipesScreen() {
             >
               <IconSymbol name="gearshape" size={22} color={colors.text} />
             </Pressable>
-            {/* 通知機能は将来実装予定のため非表示 */}
           </View>
         </View>
       </View>
@@ -374,20 +432,6 @@ export default function MyRecipesScreen() {
               </View>
             )}
           </>
-        ) : (
-          <View style={styles.loginPrompt}>
-            <Text style={[styles.loginPromptText, { color: colors.mutedForeground }]}>
-              レシピを保存・作成するには{'\n'}ログインしてください
-            </Text>
-            <Pressable
-              style={[styles.loginButton, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/login')}
-            >
-              <Text style={[styles.loginButtonText, { color: colors.primaryForeground }]}>
-                ログイン
-              </Text>
-            </Pressable>
-          </View>
         )}
       </ScrollView>
     </View>
@@ -508,6 +552,48 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  // ログイン促進画面（全面表示）
+  loginPromptFullScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  loginPromptIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
+  },
+  loginPromptTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: Spacing.sm,
+  },
+  loginPromptDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: Spacing.xl,
+  },
+  loginButtonLarge: {
+    paddingHorizontal: Spacing['2xl'],
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  loginButtonLargeText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  guestLink: {
+    paddingVertical: Spacing.sm,
+  },
+  guestLinkText: {
+    fontSize: 14,
   },
   emptyState: {
     flex: 1,

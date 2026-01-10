@@ -45,6 +45,9 @@ export default function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [isChangingEmail, setIsChangingEmail] = React.useState(false);
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+  
+  // パスワード設定済みフラグ
+  const [hasPasswordSet, setHasPasswordSet] = React.useState(false);
 
 
   // ログイン方法の判定
@@ -112,6 +115,7 @@ export default function SettingsScreen() {
           setAvatarUrl(profile.avatar_url || derivedAvatarUrl);
           setDisplayName(profile.display_name || derivedDisplayName || '');
           setBio(profile.bio || '');
+          if (profile.has_password) setHasPasswordSet(true);
 
           const patch: any = {};
           if (derivedDisplayName && !(profile.display_name && String(profile.display_name).trim())) {
@@ -335,6 +339,12 @@ export default function SettingsScreen() {
       // #endregion
 
       if (error) throw error;
+
+      // public.usersにhas_passwordフラグを設定
+      if (user) {
+        await supabase.from('users').update({ has_password: true }).eq('id', user.id);
+      }
+      setHasPasswordSet(true);
 
       setNewPassword('');
       setConfirmPassword('');
@@ -716,61 +726,75 @@ export default function SettingsScreen() {
                   {/* パスワード追加設定 */}
                   <View style={[styles.passwordAddSection, { marginTop: Spacing.md }]}>
                     <Text style={[styles.sectionLabel, { color: colors.text }]}>
-                      パスワードを追加設定（任意）
+                      パスワード設定（任意）
                     </Text>
-                    <Text style={[styles.hint, { color: colors.mutedForeground, marginBottom: Spacing.sm }]}>
-                      設定すると、メール+パスワードでもログインできます
-                    </Text>
-                    <TextInput
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      placeholder="パスワード（6文字以上）"
-                      placeholderTextColor={colors.mutedForeground}
-                      secureTextEntry
-                      style={[
-                        styles.textInput,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.border,
-                          color: colors.text,
-                        },
-                      ]}
-                    />
-                    <TextInput
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="パスワード確認"
-                      placeholderTextColor={colors.mutedForeground}
-                      secureTextEntry
-                      style={[
-                        styles.textInput,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.border,
-                          color: colors.text,
-                          marginTop: Spacing.sm,
-                        },
-                      ]}
-                    />
-                    <Pressable
-                      onPress={handleAddPassword}
-                      disabled={isChangingPassword}
-                      style={[
-                        styles.changeButton,
-                        {
-                          backgroundColor: colors.primary,
-                          opacity: isChangingPassword ? 0.7 : 1,
-                        },
-                      ]}
-                    >
-                      {isChangingPassword ? (
-                        <ActivityIndicator size="small" color={colors.primaryForeground} />
-                      ) : (
-                        <Text style={[styles.changeButtonText, { color: colors.primaryForeground }]}>
-                          パスワードを設定
+                    
+                    {hasPasswordSet ? (
+                      // パスワード設定済みの場合
+                      <View style={[styles.passwordSetBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <IconSymbol name="checkmark.circle.fill" size={20} color="#34A853" />
+                        <Text style={[styles.passwordSetText, { color: colors.text }]}>
+                          パスワード設定済み
                         </Text>
-                      )}
-                    </Pressable>
+                      </View>
+                    ) : (
+                      // パスワード未設定の場合
+                      <>
+                        <Text style={[styles.hint, { color: colors.mutedForeground, marginBottom: Spacing.sm }]}>
+                          設定すると、メール+パスワードでもログインできます
+                        </Text>
+                        <TextInput
+                          value={newPassword}
+                          onChangeText={setNewPassword}
+                          placeholder="パスワード（6文字以上）"
+                          placeholderTextColor={colors.mutedForeground}
+                          secureTextEntry
+                          style={[
+                            styles.textInput,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                        />
+                        <TextInput
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          placeholder="パスワード確認"
+                          placeholderTextColor={colors.mutedForeground}
+                          secureTextEntry
+                          style={[
+                            styles.textInput,
+                            {
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
+                              color: colors.text,
+                              marginTop: Spacing.sm,
+                            },
+                          ]}
+                        />
+                        <Pressable
+                          onPress={handleAddPassword}
+                          disabled={isChangingPassword}
+                          style={[
+                            styles.changeButton,
+                            {
+                              backgroundColor: colors.primary,
+                              opacity: isChangingPassword ? 0.7 : 1,
+                            },
+                          ]}
+                        >
+                          {isChangingPassword ? (
+                            <ActivityIndicator size="small" color={colors.primaryForeground} />
+                          ) : (
+                            <Text style={[styles.changeButtonText, { color: colors.primaryForeground }]}>
+                              パスワードを設定
+                            </Text>
+                          )}
+                        </Pressable>
+                      </>
+                    )}
                   </View>
                 </View>
               )}
@@ -802,21 +826,26 @@ export default function SettingsScreen() {
 
         {/* アカウント削除 */}
         {user && (
-          <Pressable
-            onPress={handleDeleteAccount}
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: 'transparent',
-                borderColor: '#ef4444',
-              },
-            ]}
-          >
-            <IconSymbol name="trash" size={18} color="#ef4444" />
-            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
-              アカウントを削除
+          <View style={styles.deleteSection}>
+            <Pressable
+              onPress={handleDeleteAccount}
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: 'transparent',
+                  borderColor: '#ef4444',
+                },
+              ]}
+            >
+              <IconSymbol name="trash" size={18} color="#ef4444" />
+              <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
+                アカウントを削除
+              </Text>
+            </Pressable>
+            <Text style={[styles.deleteNote, { color: colors.mutedForeground }]}>
+              ※ 削除後にGoogleで再ログインすると新しいアカウントが作成されます
             </Text>
-          </Pressable>
+          </View>
         )}
 
         {/* フッター */}
@@ -1125,5 +1154,25 @@ const styles = StyleSheet.create({
   },
   passwordAddSection: {
     gap: Spacing.sm,
+  },
+  passwordSetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  passwordSetText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteSection: {
+    gap: Spacing.xs,
+  },
+  deleteNote: {
+    fontSize: 11,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.md,
   },
 });

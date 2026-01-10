@@ -21,7 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useToast } from '@/contexts/ToastContext';
-import type { User, UserIdentity } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
@@ -46,12 +46,6 @@ export default function SettingsScreen() {
   const [isChangingEmail, setIsChangingEmail] = React.useState(false);
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
 
-  // Google連携解除モーダル
-  const [showUnlinkModal, setShowUnlinkModal] = React.useState(false);
-  const [unlinkEmail, setUnlinkEmail] = React.useState('');
-  const [unlinkPassword, setUnlinkPassword] = React.useState('');
-  const [unlinkConfirmPassword, setUnlinkConfirmPassword] = React.useState('');
-  const [isUnlinking, setIsUnlinking] = React.useState(false);
 
   // ログイン方法の判定
   const isEmailUser = React.useMemo(() => {
@@ -67,11 +61,6 @@ export default function SettingsScreen() {
     return provider === 'google' || providers?.includes('google');
   }, [user]);
 
-  // Google Identityを取得
-  const googleIdentity = React.useMemo(() => {
-    if (!user) return null;
-    return user.identities?.find((id: UserIdentity) => id.provider === 'google') || null;
-  }, [user]);
 
   // 初期データ読み込み
   React.useEffect(() => {
@@ -315,85 +304,49 @@ export default function SettingsScreen() {
     }
   };
 
-  // Google連携解除
-  const handleUnlinkGoogle = async () => {
-    // Googleユーザーは既存のメールアドレスを使用するため、メール入力は不要
-    // パスワードのみ必須
-    if (!unlinkPassword.trim() || unlinkPassword.length < 6) {
+  // Googleユーザー向け：パスワード追加設定
+  const handleAddPassword = async () => {
+    if (!newPassword.trim()) {
+      showToast({ message: 'パスワードを入力してください', type: 'error' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
       showToast({ message: 'パスワードは6文字以上で入力してください', type: 'error' });
       return;
     }
 
-    if (unlinkPassword !== unlinkConfirmPassword) {
+    if (newPassword !== confirmPassword) {
       showToast({ message: 'パスワードが一致しません', type: 'error' });
       return;
     }
 
-    if (!googleIdentity) {
-      showToast({ message: 'Google連携が見つかりません', type: 'error' });
-      return;
-    }
-
     try {
-      setIsUnlinking(true);
+      setIsChangingPassword(true);
 
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:start',message:'Unlink started (password only)',data:{currentUserEmail:user?.email,googleIdentityId:googleIdentity?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleAddPassword:start',message:'Add password for Google user',data:{email:user?.email},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-2'})}).catch(()=>{});
       // #endregion
 
-      // 1. パスワードのみを設定（メールアドレスは既存のGoogleメールを使用）
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: unlinkPassword,
-      });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUpdateUser',message:'updateUser result (password only)',data:{updateError:updateError?.message||null,updateErrorCode:updateError?.code||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleAddPassword:result',message:'Add password result',data:{error:error?.message||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-2'})}).catch(()=>{});
       // #endregion
-
-      if (updateError) throw updateError;
-
-      // 2. Google連携を解除
-      const { error: unlinkError } = await supabase.auth.unlinkIdentity(googleIdentity);
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUnlink',message:'unlinkIdentity result',data:{unlinkError:unlinkError?.message||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-
-      if (unlinkError) throw unlinkError;
-
-      // ユーザー情報を再取得
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      setUser(updatedUser);
-
-      setShowUnlinkModal(false);
-      setUnlinkEmail('');
-      setUnlinkPassword('');
-      setUnlinkConfirmPassword('');
-      showToast({ message: 'Google連携を解除しました。今後は ' + (user?.email || 'メール') + ' とパスワードでログインできます。', type: 'success' });
-    } catch (e: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:catch',message:'Unlink error caught',data:{errorMessage:e?.message,errorCode:e?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C'})}).catch(()=>{});
-      // #endregion
-      console.error('Unlink Google error:', e);
-      showToast({ message: e.message || 'Google連携の解除に失敗しました', type: 'error' });
-    } finally {
-      setIsUnlinking(false);
-    }
-  };
-
-  // Google連携追加
-  const handleLinkGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.linkIdentity({ provider: 'google' });
 
       if (error) throw error;
 
-      showToast({ message: 'Googleアカウントとの連携を開始します', type: 'info' });
+      setNewPassword('');
+      setConfirmPassword('');
+      showToast({ message: 'パスワードを設定しました。メール+パスワードでもログインできます。', type: 'success' });
     } catch (e: any) {
-      console.error('Link Google error:', e);
-      showToast({ message: e.message || 'Google連携に失敗しました', type: 'error' });
+      console.error('Add password error:', e);
+      showToast({ message: e.message || 'パスワードの設定に失敗しました', type: 'error' });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
+
 
   // ログアウト
   const handleLogout = () => {
@@ -742,52 +695,86 @@ export default function SettingsScreen() {
                 </>
               )}
 
-              {/* Googleログインユーザー向け */}
+              {/* Googleログインユーザー向け：パスワード追加設定 */}
               {isGoogleUser && (
                 <View style={styles.subsection}>
                   <Text style={[styles.sectionLabel, { color: colors.text }]}>
-                    Google連携
+                    ログイン方法
                   </Text>
                   <View style={styles.linkingStatus}>
                     <View style={styles.linkingInfo}>
                       <IconSymbol name="checkmark.circle.fill" size={20} color="#34A853" />
                       <Text style={[styles.linkingText, { color: colors.text }]}>
-                        Googleアカウントと連携中
+                        Googleアカウントでログイン中
                       </Text>
                     </View>
-                    <Pressable
-                      onPress={() => setShowUnlinkModal(true)}
-                      style={[styles.unlinkButton, { borderColor: '#ef4444' }]}
-                    >
-                      <Text style={styles.unlinkButtonText}>連携解除</Text>
-                    </Pressable>
                   </View>
                   <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-                    連携解除するには、メールアドレスとパスワードの登録が必要です
+                    メールアドレス: {user?.email}
                   </Text>
+                  
+                  {/* パスワード追加設定 */}
+                  <View style={[styles.passwordAddSection, { marginTop: Spacing.md }]}>
+                    <Text style={[styles.sectionLabel, { color: colors.text }]}>
+                      パスワードを追加設定（任意）
+                    </Text>
+                    <Text style={[styles.hint, { color: colors.mutedForeground, marginBottom: Spacing.sm }]}>
+                      設定すると、メール+パスワードでもログインできます
+                    </Text>
+                    <TextInput
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      placeholder="パスワード（6文字以上）"
+                      placeholderTextColor={colors.mutedForeground}
+                      secureTextEntry
+                      style={[
+                        styles.textInput,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
+                    />
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="パスワード確認"
+                      placeholderTextColor={colors.mutedForeground}
+                      secureTextEntry
+                      style={[
+                        styles.textInput,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          color: colors.text,
+                          marginTop: Spacing.sm,
+                        },
+                      ]}
+                    />
+                    <Pressable
+                      onPress={handleAddPassword}
+                      disabled={isChangingPassword}
+                      style={[
+                        styles.changeButton,
+                        {
+                          backgroundColor: colors.primary,
+                          opacity: isChangingPassword ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      {isChangingPassword ? (
+                        <ActivityIndicator size="small" color={colors.primaryForeground} />
+                      ) : (
+                        <Text style={[styles.changeButtonText, { color: colors.primaryForeground }]}>
+                          パスワードを設定
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
               )}
 
-              {/* メールユーザーでGoogle未連携の場合 */}
-              {isEmailUser && !isGoogleUser && (
-                <View style={styles.subsection}>
-                  <Text style={[styles.sectionLabel, { color: colors.text }]}>
-                    Google連携
-                  </Text>
-                  <Pressable
-                    onPress={handleLinkGoogle}
-                    style={[styles.linkButton, { borderColor: colors.border }]}
-                  >
-                    <Image
-                      source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
-                      style={styles.googleIcon}
-                    />
-                    <Text style={[styles.linkButtonText, { color: colors.text }]}>
-                      Googleアカウントと連携
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
           </>
         )}
@@ -853,102 +840,6 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      {/* Google連携解除モーダル */}
-      <Modal
-        visible={showUnlinkModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowUnlinkModal(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowUnlinkModal(false)}
-        >
-          <Pressable
-            style={[styles.modalContent, { backgroundColor: colors.background }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Google連携を解除
-            </Text>
-            <Text style={[styles.modalDescription, { color: colors.mutedForeground }]}>
-              連携解除後は下記のメールアドレスとパスワードでログインできます。
-            </Text>
-
-            <View style={styles.modalForm}>
-              {/* メールアドレスは表示のみ（Googleアカウントのメールを使用） */}
-              <View style={[styles.emailDisplay, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.emailDisplayLabel, { color: colors.mutedForeground }]}>
-                  メールアドレス
-                </Text>
-                <Text style={[styles.emailDisplayText, { color: colors.text }]}>
-                  {user?.email || ''}
-                </Text>
-              </View>
-              <TextInput
-                value={unlinkPassword}
-                onChangeText={setUnlinkPassword}
-                placeholder="パスワード（6文字以上）"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-              />
-              <TextInput
-                value={unlinkConfirmPassword}
-                onChangeText={setUnlinkConfirmPassword}
-                placeholder="パスワード確認"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <Pressable
-                onPress={() => setShowUnlinkModal(false)}
-                style={[styles.modalButton, { backgroundColor: colors.surface }]}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.text }]}>
-                  キャンセル
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleUnlinkGoogle}
-                disabled={isUnlinking}
-                style={[
-                  styles.modalButton,
-                  {
-                    backgroundColor: '#ef4444',
-                    opacity: isUnlinking ? 0.7 : 1,
-                  },
-                ]}
-              >
-                {isUnlinking ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>
-                    連携解除
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -1231,5 +1122,8 @@ const styles = StyleSheet.create({
   emailDisplayText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  passwordAddSection: {
+    gap: Spacing.sm,
   },
 });

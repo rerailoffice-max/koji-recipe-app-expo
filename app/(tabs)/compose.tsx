@@ -29,6 +29,7 @@ import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/contexts/ToastContext';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
@@ -166,6 +167,7 @@ export default function ComposeScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showToast } = useToast();
 
   // 会話が開始されたかどうか
   const [hasStarted, setHasStarted] = React.useState(false);
@@ -429,6 +431,14 @@ export default function ComposeScreen() {
   const handleGenerateDraft = React.useCallback(async () => {
     if (isGeneratingDraft || isThinking) return;
     
+    // ログインチェック
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showToast({ message: '下書き保存にはログインが必要です', type: 'info' });
+      setTimeout(() => router.push('/login'), 1500);
+      return;
+    }
+    
     setIsGeneratingDraft(true);
     setSuggestions([]); // チップを非表示にする
     
@@ -534,7 +544,7 @@ export default function ComposeScreen() {
     } finally {
       setIsGeneratingDraft(false);
     }
-  }, [isGeneratingDraft, isThinking, messages, router]);
+  }, [isGeneratingDraft, isThinking, messages, router, showToast]);
   
   // スキップしてフォーム画面へ遷移
   const handleSkipToForm = React.useCallback(() => {
@@ -646,7 +656,7 @@ export default function ComposeScreen() {
         .single();
 
       if (error || !data) {
-        Alert.alert('エラー', '下書きの読み込みに失敗しました');
+        showToast({ message: '下書きの読み込みに失敗しました', type: 'error' });
         return;
       }
 
@@ -665,9 +675,9 @@ export default function ComposeScreen() {
       });
     } catch (e) {
       console.error('Resume draft error:', e);
-      Alert.alert('エラー', '下書きの読み込みに失敗しました');
+      showToast({ message: '下書きの読み込みに失敗しました', type: 'error' });
     }
-  }, [router]);
+  }, [router, showToast]);
 
   // クイックプロンプト選択（キャッシュがあれば即座に表示、なければローディング）
   const handleSelectQuickPrompt = React.useCallback((promptId: string) => {

@@ -21,6 +21,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/contexts/ToastContext';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
@@ -76,6 +77,7 @@ export default function RecipeEditScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{
     draftId?: string;
     title?: string;
@@ -282,7 +284,7 @@ export default function RecipeEditScreen() {
   // 下書き保存
   const handleSaveDraft = async () => {
     if (!formData.title.trim()) {
-      Alert.alert('エラー', '下書きを保存するにはタイトルを入力してください');
+      showToast({ message: 'タイトルを入力してください', type: 'error' });
       return;
     }
 
@@ -292,11 +294,9 @@ export default function RecipeEditScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert('ログインが必要です', '下書きを保存するにはログインが必要です。', [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: 'ログイン', onPress: () => router.push('/login') },
-        ]);
-        router.push('/login');
+        showToast({ message: '下書き保存にはログインが必要です', type: 'info' });
+        setTimeout(() => router.push('/login'), 1500);
+        setIsSavingDraft(false);
         return;
       }
 
@@ -375,10 +375,10 @@ export default function RecipeEditScreen() {
         if (data) setDraftId(data.id);
       }
 
-      Alert.alert('保存完了', '下書きを保存しました');
+      showToast({ message: '下書きを保存しました', type: 'success' });
     } catch (e: any) {
       console.error('Save draft error:', e);
-      Alert.alert('エラー', e?.message || '下書きの保存に失敗しました');
+      showToast({ message: e?.message || '下書きの保存に失敗しました', type: 'error' });
     } finally {
       setIsSavingDraft(false);
     }
@@ -387,7 +387,7 @@ export default function RecipeEditScreen() {
   // 投稿
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
-      Alert.alert('エラー', 'タイトルを入力してください');
+      showToast({ message: 'タイトルを入力してください', type: 'error' });
       return;
     }
 
@@ -397,10 +397,9 @@ export default function RecipeEditScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert('ログインが必要です', '投稿するにはログインが必要です。', [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: 'ログイン', onPress: () => router.push('/login') },
-        ]);
+        showToast({ message: '投稿にはログインが必要です', type: 'info' });
+        setTimeout(() => router.push('/login'), 1500);
+        setIsSubmitting(false);
         return;
       }
 
@@ -483,20 +482,14 @@ export default function RecipeEditScreen() {
         if (error) throw error;
       }
 
-      // Web(PWA)では Alert のボタンコールバックが効かない/遷移が反映されにくいことがあるため、
-      // 成功後は確実にホームへ戻す（必要ならアラートは簡易表示）
-      if (Platform.OS === 'web') {
-        // replace('/') だけだと環境によって遷移が反映されないことがあるため、
-        // クエリを付けてURLを確実に変え、クライアント遷移を強制する
+      // 投稿完了のトースト表示後に遷移
+      showToast({ message: 'レシピを投稿しました！', type: 'success' });
+      setTimeout(() => {
         router.replace({ pathname: '/', params: { refresh: String(Date.now()) } } as any);
-      } else {
-        Alert.alert('投稿完了', 'レシピを投稿しました', [
-          { text: 'OK', onPress: () => router.replace('/') },
-        ]);
-      }
+      }, 1000);
     } catch (e: any) {
       console.error('Submit error:', e);
-      Alert.alert('エラー', e?.message || '投稿に失敗しました');
+      showToast({ message: e?.message || '投稿に失敗しました', type: 'error' });
     } finally {
       setIsSubmitting(false);
     }

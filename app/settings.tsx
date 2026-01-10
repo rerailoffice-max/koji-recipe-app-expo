@@ -21,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFontSize, type FontSizeKey } from '@/hooks/use-font-size';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useToast } from '@/contexts/ToastContext';
 import type { User } from '@supabase/supabase-js';
 
 const FONT_SIZE_OPTIONS: { value: FontSizeKey; label: string }[] = [
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showToast } = useToast();
 
   // フォントサイズのコンテキストを使用
   const { fontSize, setFontSize } = useFontSize();
@@ -145,7 +147,7 @@ export default function SettingsScreen() {
       }
     } catch (e) {
       console.error('Pick avatar error:', e);
-      Alert.alert('エラー', '画像の選択に失敗しました。');
+      showToast({ message: '画像の選択に失敗しました', type: 'error' });
     }
   };
 
@@ -209,19 +211,10 @@ export default function SettingsScreen() {
       if (updateError) throw updateError;
 
       setAvatarUrl(publicUrl);
-      
-      if (Platform.OS === 'web') {
-        window.alert('プロフィール画像を更新しました。');
-      } else {
-        Alert.alert('完了', 'プロフィール画像を更新しました。');
-      }
+      showToast({ message: 'プロフィール画像を更新しました', type: 'success' });
     } catch (e: any) {
       console.error('Upload avatar error:', e);
-      if (Platform.OS === 'web') {
-        window.alert('画像のアップロードに失敗しました: ' + (e?.message || ''));
-      } else {
-        Alert.alert('エラー', '画像のアップロードに失敗しました。');
-      }
+      showToast({ message: '画像のアップロードに失敗しました', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -250,10 +243,10 @@ export default function SettingsScreen() {
         if (error) throw error;
       }
 
-      Alert.alert('完了', '設定を保存しました。');
+      showToast({ message: '設定を保存しました', type: 'success' });
     } catch (e) {
       console.error('Save profile error:', e);
-      Alert.alert('エラー', '設定の保存に失敗しました。');
+      showToast({ message: '設定の保存に失敗しました', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -310,7 +303,7 @@ export default function SettingsScreen() {
               router.replace('/login');
             } catch (e) {
               console.error('Delete account error:', e);
-              Alert.alert('エラー', 'アカウントの削除に失敗しました。');
+              showToast({ message: 'アカウントの削除に失敗しました', type: 'error' });
             }
           },
         },

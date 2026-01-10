@@ -18,6 +18,7 @@ import { ChipTag } from '@/components/ui/ChipTag';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useToast } from '@/contexts/ToastContext';
 
 // 型定義
 interface Ingredient {
@@ -70,6 +71,7 @@ export default function PostDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
 
   const [post, setPost] = React.useState<Post | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -159,10 +161,8 @@ export default function PostDetailScreen() {
   // 保存トグル
   const handleToggleSave = async () => {
     if (!currentUserId) {
-      Alert.alert('ログインが必要です', '保存するにはログインしてください', [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'ログイン', onPress: () => router.push('/login') },
-      ]);
+      showToast({ message: '保存にはログインが必要です', type: 'info' });
+      setTimeout(() => router.push('/login'), 1500);
       return;
     }
 
@@ -182,6 +182,7 @@ export default function PostDetailScreen() {
           .eq('post_id', post.id);
 
         if (error) throw error;
+        showToast({ message: '保存を解除しました', type: 'success' });
       } else {
         // 保存
         const { error } = await supabase
@@ -189,11 +190,12 @@ export default function PostDetailScreen() {
           .insert({ user_id: currentUserId, post_id: post.id });
 
         if (error) throw error;
+        showToast({ message: '保存しました', type: 'success' });
       }
     } catch (e: any) {
       console.error('Save error:', e);
       setIsSaved(prevSaved);
-      Alert.alert('エラー', prevSaved ? '保存の解除に失敗しました' : '保存に失敗しました');
+      showToast({ message: prevSaved ? '保存の解除に失敗しました' : '保存に失敗しました', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -219,25 +221,23 @@ export default function PostDetailScreen() {
         
         if (error) throw error;
         
-        if (Platform.OS === 'web') {
-          // Web環境では履歴を使って戻る、履歴がなければプロフィールへ
-          if (window.history.length > 1) {
-            window.history.back();
+        showToast({ message: '投稿を削除しました', type: 'success' });
+        
+        setTimeout(() => {
+          if (Platform.OS === 'web') {
+            // Web環境では履歴を使って戻る、履歴がなければプロフィールへ
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              router.replace('/(tabs)/profile');
+            }
           } else {
-            router.replace('/(tabs)/profile');
+            router.back();
           }
-        } else {
-          Alert.alert('削除完了', '投稿を削除しました', [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
-        }
+        }, 1000);
       } catch (e: any) {
         console.error('Delete error:', e);
-        if (Platform.OS === 'web') {
-          window.alert('削除に失敗しました');
-        } else {
-          Alert.alert('エラー', '削除に失敗しました');
-        }
+        showToast({ message: '削除に失敗しました', type: 'error' });
       } finally {
         setIsDeleting(false);
       }

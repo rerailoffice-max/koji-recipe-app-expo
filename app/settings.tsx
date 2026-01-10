@@ -317,11 +317,8 @@ export default function SettingsScreen() {
 
   // Google連携解除
   const handleUnlinkGoogle = async () => {
-    if (!unlinkEmail.trim()) {
-      showToast({ message: 'メールアドレスを入力してください', type: 'error' });
-      return;
-    }
-
+    // Googleユーザーは既存のメールアドレスを使用するため、メール入力は不要
+    // パスワードのみ必須
     if (!unlinkPassword.trim() || unlinkPassword.length < 6) {
       showToast({ message: 'パスワードは6文字以上で入力してください', type: 'error' });
       return;
@@ -341,17 +338,16 @@ export default function SettingsScreen() {
       setIsUnlinking(true);
 
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:start',message:'Unlink started',data:{unlinkEmail:unlinkEmail.trim(),currentUserEmail:user?.email,googleIdentityId:googleIdentity?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:start',message:'Unlink started (password only)',data:{currentUserEmail:user?.email,googleIdentityId:googleIdentity?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
 
-      // 1. メールアドレスとパスワードを設定
+      // 1. パスワードのみを設定（メールアドレスは既存のGoogleメールを使用）
       const { error: updateError } = await supabase.auth.updateUser({
-        email: unlinkEmail.trim(),
         password: unlinkPassword,
       });
 
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUpdateUser',message:'updateUser result',data:{updateError:updateError?.message||null,updateErrorCode:updateError?.code||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUpdateUser',message:'updateUser result (password only)',data:{updateError:updateError?.message||null,updateErrorCode:updateError?.code||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'})}).catch(()=>{});
       // #endregion
 
       if (updateError) throw updateError;
@@ -360,7 +356,7 @@ export default function SettingsScreen() {
       const { error: unlinkError } = await supabase.auth.unlinkIdentity(googleIdentity);
 
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUnlink',message:'unlinkIdentity result',data:{unlinkError:unlinkError?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUnlink',message:'unlinkIdentity result',data:{unlinkError:unlinkError?.message||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
 
       if (unlinkError) throw unlinkError;
@@ -373,10 +369,10 @@ export default function SettingsScreen() {
       setUnlinkEmail('');
       setUnlinkPassword('');
       setUnlinkConfirmPassword('');
-      showToast({ message: 'Google連携を解除しました', type: 'success' });
+      showToast({ message: 'Google連携を解除しました。今後は ' + (user?.email || 'メール') + ' とパスワードでログインできます。', type: 'success' });
     } catch (e: any) {
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:catch',message:'Unlink error caught',data:{errorMessage:e?.message,errorCode:e?.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:catch',message:'Unlink error caught',data:{errorMessage:e?.message,errorCode:e?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C'})}).catch(()=>{});
       // #endregion
       console.error('Unlink Google error:', e);
       showToast({ message: e.message || 'Google連携の解除に失敗しました', type: 'error' });
@@ -428,41 +424,45 @@ export default function SettingsScreen() {
 
     const doDelete = async () => {
       // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:start',message:'Delete account started',data:{userId:user.id,userEmail:user.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D,E'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:start',message:'Delete account started (via API)',data:{userId:user.id,userEmail:user.email},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D,E'})}).catch(()=>{});
       // #endregion
       try {
-        // ユーザーの投稿を削除
-        const { error: postsErr } = await supabase.from('posts').delete().eq('user_id', user.id);
+        // セッションを取得してアクセストークンを取得
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('セッションが無効です。再度ログインしてください。');
+        }
+
+        // APIサーバーにアカウント削除をリクエスト
+        const response = await fetch('https://api.gochisokoji.com/api/auth/delete-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        const result = await response.json();
+
         // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:posts',message:'Posts delete result',data:{postsError:postsErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:apiResult',message:'Delete API result',data:{status:response.status,success:result?.success,error:result?.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
 
-        // ユーザーのいいねを削除
-        const { error: likesErr } = await supabase.from('likes').delete().eq('user_id', user.id);
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:likes',message:'Likes delete result',data:{likesError:likesErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'アカウントの削除に失敗しました');
+        }
 
-        // ユーザープロフィールを削除
-        const { error: usersErr } = await supabase.from('users').delete().eq('id', user.id);
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:users',message:'Users delete result',data:{usersError:usersErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
-
-        // サインアウト
+        // ローカルのセッションをクリア
         await supabase.auth.signOut();
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:signout',message:'Signout completed, NOTE: auth.users NOT deleted (requires admin API)',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
 
         router.replace('/login');
         showToast({ message: 'アカウントを削除しました', type: 'success' });
       } catch (e: any) {
         // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:catch',message:'Delete error caught',data:{errorMessage:e?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:catch',message:'Delete error caught',data:{errorMessage:e?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
         // #endregion
         console.error('Delete account error:', e);
-        showToast({ message: 'アカウントの削除に失敗しました', type: 'error' });
+        showToast({ message: e.message || 'アカウントの削除に失敗しました', type: 'error' });
       }
     };
 
@@ -872,26 +872,19 @@ export default function SettingsScreen() {
               Google連携を解除
             </Text>
             <Text style={[styles.modalDescription, { color: colors.mutedForeground }]}>
-              連携解除後はメールアドレスとパスワードでログインできます。
+              連携解除後は下記のメールアドレスとパスワードでログインできます。
             </Text>
 
             <View style={styles.modalForm}>
-              <TextInput
-                value={unlinkEmail}
-                onChangeText={setUnlinkEmail}
-                placeholder="メールアドレス"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-              />
+              {/* メールアドレスは表示のみ（Googleアカウントのメールを使用） */}
+              <View style={[styles.emailDisplay, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.emailDisplayLabel, { color: colors.mutedForeground }]}>
+                  メールアドレス
+                </Text>
+                <Text style={[styles.emailDisplayText, { color: colors.text }]}>
+                  {user?.email || ''}
+                </Text>
+              </View>
               <TextInput
                 value={unlinkPassword}
                 onChangeText={setUnlinkPassword}
@@ -1224,5 +1217,19 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  emailDisplay: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.sm + 4,
+    paddingVertical: Spacing.sm,
+  },
+  emailDisplayLabel: {
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  emailDisplayText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

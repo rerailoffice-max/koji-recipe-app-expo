@@ -20,12 +20,12 @@ import {
   ChatMessageBubble,
   QuickReplyChips,
   ComposerBar,
-  RecipeLoadingBubble,
   type ChatAttachment,
   type QuickReply,
 } from '@/components/chat';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
@@ -849,11 +849,6 @@ export default function ComposeScreen() {
                 </View>
               )}
 
-              {/* レシピ下書き生成中のアニメーション */}
-              {isGeneratingDraft && (
-                <RecipeLoadingBubble aiAvatarSrc={AI_AVATAR_SOURCE} />
-              )}
-
               {/* AIの返答後のチップ */}
               {shouldShowChips && (
                 <QuickReplyChips
@@ -1138,6 +1133,9 @@ export default function ComposeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* レシピ生成中のフルスクリーンオーバーレイ */}
+      <LoadingOverlay visible={isGeneratingDraft} />
     </View>
   );
 }

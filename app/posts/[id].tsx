@@ -74,9 +74,14 @@ export default function PostDetailScreen() {
   const [post, setPost] = React.useState<Post | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = React.useState<string | null>(null);
   const [isSaved, setIsSaved] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
+  
+  // 管理者メールアドレス
+  const ADMIN_EMAIL = 'admin@gochisokoji.com';
+  const isAdmin = currentUserEmail === ADMIN_EMAIL;
 
   // 投稿データを取得
   React.useEffect(() => {
@@ -120,11 +125,13 @@ export default function PostDetailScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setCurrentUserId(null);
+        setCurrentUserEmail(null);
         setIsSaved(false);
         return;
       }
 
       setCurrentUserId(user.id);
+      setCurrentUserEmail(user.email || null);
 
       if (post?.id) {
         const { data: like } = await supabase
@@ -132,7 +139,7 @@ export default function PostDetailScreen() {
           .select('id')
           .eq('user_id', user.id)
           .eq('post_id', post.id)
-          .single();
+          .maybeSingle();
 
         setIsSaved(!!like);
       }
@@ -465,10 +472,12 @@ export default function PostDetailScreen() {
             </View>
           )}
 
-          {/* 閲覧数 */}
-          <Text style={[styles.viewCount, { color: colors.mutedForeground }]}>
-            {post.view_count} 回閲覧
-          </Text>
+          {/* 閲覧数（管理者のみ表示） */}
+          {isAdmin && (
+            <Text style={[styles.viewCount, { color: colors.mutedForeground }]}>
+              {post.view_count} 回閲覧
+            </Text>
+          )}
         </View>
       </ScrollView>
     </View>

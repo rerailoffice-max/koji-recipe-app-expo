@@ -50,8 +50,6 @@ export function QuickReplyChips({ replies, onPress, disabled }: QuickReplyChipsP
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
   },
@@ -60,6 +58,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: Spacing.sm,
+    rowGap: Spacing.xs,
   },
   chip: {
     height: 36,
@@ -69,6 +68,8 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   chipText: {
     fontSize: 14,

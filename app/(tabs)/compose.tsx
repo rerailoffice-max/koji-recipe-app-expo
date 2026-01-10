@@ -190,6 +190,15 @@ export default function ComposeScreen() {
   // 下書き生成中フラグ
   const [isGeneratingDraft, setIsGeneratingDraft] = React.useState(false);
   
+  // 下書き生成完了フラグ
+  const [isDraftComplete, setIsDraftComplete] = React.useState(false);
+  
+  // 完成後の遷移用データ
+  const pendingNavigationRef = React.useRef<{
+    pathname: string;
+    params: Record<string, string>;
+  } | null>(null);
+  
   // 下書き一覧
   const [drafts, setDrafts] = React.useState<Draft[]>([]);
   const [isLoadingDrafts, setIsLoadingDrafts] = React.useState(false);
@@ -501,31 +510,33 @@ export default function ComposeScreen() {
           }
         }
         
-        // フォーム画面へ遷移（抽出されたレシピデータと画像を渡す）
-        setTimeout(() => {
-          router.push({
-            pathname: '/compose/edit',
-            params: {
-              title: recipe.title || '',
-              description: recipe.description || '',
-              koji_type: recipe.koji_type || '',
-              difficulty: recipe.difficulty || 'かんたん',
-              ingredients: JSON.stringify(recipe.ingredients || []),
-              steps: JSON.stringify(recipe.steps || []),
-              tips: recipe.tips || '',
-              image_base64: imageBase64 || '',
-            },
-          });
-        }, 1000);
+        // 完成状態にして、遷移データを保存
+        pendingNavigationRef.current = {
+          pathname: '/compose/edit',
+          params: {
+            title: recipe.title || '',
+            description: recipe.description || '',
+            koji_type: recipe.koji_type || '',
+            difficulty: recipe.difficulty || 'かんたん',
+            ingredients: JSON.stringify(recipe.ingredients || []),
+            steps: JSON.stringify(recipe.steps || []),
+            tips: recipe.tips || '',
+            image_base64: imageBase64 || '',
+          },
+        };
+        setIsDraftComplete(true);
       } else {
         // エラーメッセージを追加
         setMessages((prev) => [
           ...prev,
           { id: resultMsgId, role: 'ai' as const, text: json?.error || 'レシピの抽出に失敗しました。もう一度お試しください。' },
         ]);
+        // エラー時はここでリセット
+        setIsGeneratingDraft(false);
       }
     } catch (e) {
       if ((e as any)?.name === 'AbortError') {
+        setIsGeneratingDraft(false);
         return;
       }
       console.error('Extract recipe error:', e);
@@ -534,7 +545,7 @@ export default function ComposeScreen() {
         ...prev,
         { id: resultMsgId, role: 'ai' as const, text: '通信に失敗しました。もう一度お試しください。' },
       ]);
-    } finally {
+      // エラー時のみここでリセット（成功時は完成アニメーション後にリセット）
       setIsGeneratingDraft(false);
     }
   }, [isGeneratingDraft, isThinking, messages, router, showToast]);
@@ -572,6 +583,8 @@ export default function ComposeScreen() {
       setShowAttachSheet(false);
       setIsThinking(false);
       setIsGeneratingDraft(false);
+      setIsDraftComplete(false);
+      pendingNavigationRef.current = null;
       // 完全リセット：メニューキャッシュも破棄
       setPreGeneratedMenus(null);
     };
@@ -1135,7 +1148,19 @@ export default function ComposeScreen() {
       </Modal>
 
       {/* レシピ生成中のフルスクリーンオーバーレイ */}
-      <LoadingOverlay visible={isGeneratingDraft} />
+      <LoadingOverlay
+        visible={isGeneratingDraft}
+        isComplete={isDraftComplete}
+        onCompleteEnd={() => {
+          // 完成演出後に画面遷移
+          if (pendingNavigationRef.current) {
+            router.push(pendingNavigationRef.current as any);
+            pendingNavigationRef.current = null;
+          }
+          setIsGeneratingDraft(false);
+          setIsDraftComplete(false);
+        }}
+      />
     </View>
   );
 }

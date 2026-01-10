@@ -111,12 +111,10 @@ export default function PostDetailScreen() {
         setPost(data as Post);
         
         // 閲覧数をカウントアップ（非同期で実行、エラーは無視）
-        supabase
+        void supabase
           .from('posts')
           .update({ view_count: (data.view_count || 0) + 1 })
-          .eq('id', id)
-          .then(() => {})
-          .catch(() => {});
+          .eq('id', id);
       } catch (e) {
         console.error('Post fetch error:', e);
         Alert.alert('エラー', 'レシピの取得に失敗しました');

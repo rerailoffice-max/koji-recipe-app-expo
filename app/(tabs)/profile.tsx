@@ -381,58 +381,56 @@ export default function MyRecipesScreen() {
           })}
         </View>
 
-        {/* レシピセクション - フィルターに応じて表示切り替え */}
-        {user ? (
-          <>
-            {/* 保存したレシピ */}
-            {(activeFilter === 'all' || activeFilter === 'saved') && savedRecipes.length > 0 && (
-              <RecipeSection
-                title="保存したレシピ"
-                count={savedRecipes.length}
-                recipes={savedRecipes}
-                onRecipePress={handleRecipePress}
-                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('saved') : undefined}
-              />
-            )}
+        {/* レシピセクション */}
+        <>
+          {/* 保存したレシピ */}
+          {(activeFilter === 'all' || activeFilter === 'saved') && savedRecipes.length > 0 && (
+            <RecipeSection
+              title="保存したレシピ"
+              count={savedRecipes.length}
+              recipes={savedRecipes}
+              onRecipePress={handleRecipePress}
+              onSeeAll={activeFilter === 'all' ? () => setActiveFilter('saved') : undefined}
+            />
+          )}
 
-            {/* 自分のレシピ */}
-            {(activeFilter === 'all' || activeFilter === 'mine') && myRecipes.length > 0 && (
-              <RecipeSection
-                title="自分のレシピ"
-                count={myRecipes.length}
-                recipes={myRecipes}
-                onRecipePress={handleRecipePress}
-                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('mine') : undefined}
-              />
-            )}
+          {/* 自分のレシピ */}
+          {(activeFilter === 'all' || activeFilter === 'mine') && myRecipes.length > 0 && (
+            <RecipeSection
+              title="自分のレシピ"
+              count={myRecipes.length}
+              recipes={myRecipes}
+              onRecipePress={handleRecipePress}
+              onSeeAll={activeFilter === 'all' ? () => setActiveFilter('mine') : undefined}
+            />
+          )}
 
-            {/* 下書き中のレシピ */}
-            {(activeFilter === 'all' || activeFilter === 'drafts') && draftRecipes.length > 0 && (
-              <RecipeSection
-                title="下書き中のレシピ"
-                count={draftRecipes.length}
-                recipes={draftRecipes}
-                onRecipePress={handleRecipePress}
-                onSeeAll={activeFilter === 'all' ? () => setActiveFilter('drafts') : undefined}
-              />
-            )}
+          {/* 下書き中のレシピ */}
+          {(activeFilter === 'all' || activeFilter === 'drafts') && draftRecipes.length > 0 && (
+            <RecipeSection
+              title="下書き中のレシピ"
+              count={draftRecipes.length}
+              recipes={draftRecipes}
+              onRecipePress={handleRecipePress}
+              onSeeAll={activeFilter === 'all' ? () => setActiveFilter('drafts') : undefined}
+            />
+          )}
 
-            {/* 空の状態 */}
-            {((activeFilter === 'saved' && savedRecipes.length === 0) ||
-              (activeFilter === 'mine' && myRecipes.length === 0) ||
-              (activeFilter === 'drafts' && draftRecipes.length === 0) ||
-              (activeFilter === 'all' && savedRecipes.length === 0 && myRecipes.length === 0 && draftRecipes.length === 0)) && (
-              <View style={styles.emptyState}>
-                <Text style={[styles.emptyStateText, { color: colors.mutedForeground }]}>
-                  {activeFilter === 'saved' && '保存したレシピはまだありません'}
-                  {activeFilter === 'mine' && '自分のレシピはまだありません'}
-                  {activeFilter === 'drafts' && '下書きはまだありません'}
-                  {activeFilter === 'all' && 'まだレシピがありません'}
-                </Text>
-              </View>
-            )}
-          </>
-        )}
+          {/* 空の状態 */}
+          {((activeFilter === 'saved' && savedRecipes.length === 0) ||
+            (activeFilter === 'mine' && myRecipes.length === 0) ||
+            (activeFilter === 'drafts' && draftRecipes.length === 0) ||
+            (activeFilter === 'all' && savedRecipes.length === 0 && myRecipes.length === 0 && draftRecipes.length === 0)) && (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyStateText, { color: colors.mutedForeground }]}>
+                {activeFilter === 'saved' && '保存したレシピはまだありません'}
+                {activeFilter === 'mine' && '自分のレシピはまだありません'}
+                {activeFilter === 'drafts' && '下書きはまだありません'}
+                {activeFilter === 'all' && 'まだレシピがありません'}
+              </Text>
+            </View>
+          )}
+        </>
       </ScrollView>
     </View>
   );

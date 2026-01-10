@@ -340,16 +340,28 @@ export default function SettingsScreen() {
     try {
       setIsUnlinking(true);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:start',message:'Unlink started',data:{unlinkEmail:unlinkEmail.trim(),currentUserEmail:user?.email,googleIdentityId:googleIdentity?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
       // 1. メールアドレスとパスワードを設定
       const { error: updateError } = await supabase.auth.updateUser({
         email: unlinkEmail.trim(),
         password: unlinkPassword,
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUpdateUser',message:'updateUser result',data:{updateError:updateError?.message||null,updateErrorCode:updateError?.code||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+      // #endregion
+
       if (updateError) throw updateError;
 
       // 2. Google連携を解除
       const { error: unlinkError } = await supabase.auth.unlinkIdentity(googleIdentity);
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:afterUnlink',message:'unlinkIdentity result',data:{unlinkError:unlinkError?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
 
       if (unlinkError) throw unlinkError;
 
@@ -363,6 +375,9 @@ export default function SettingsScreen() {
       setUnlinkConfirmPassword('');
       showToast({ message: 'Google連携を解除しました', type: 'success' });
     } catch (e: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleUnlinkGoogle:catch',message:'Unlink error caught',data:{errorMessage:e?.message,errorCode:e?.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C'})}).catch(()=>{});
+      // #endregion
       console.error('Unlink Google error:', e);
       showToast({ message: e.message || 'Google連携の解除に失敗しました', type: 'error' });
     } finally {
@@ -412,18 +427,40 @@ export default function SettingsScreen() {
     if (!user) return;
 
     const doDelete = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:start',message:'Delete account started',data:{userId:user.id,userEmail:user.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D,E'})}).catch(()=>{});
+      // #endregion
       try {
         // ユーザーの投稿を削除
-        await supabase.from('posts').delete().eq('user_id', user.id);
+        const { error: postsErr } = await supabase.from('posts').delete().eq('user_id', user.id);
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:posts',message:'Posts delete result',data:{postsError:postsErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+
         // ユーザーのいいねを削除
-        await supabase.from('likes').delete().eq('user_id', user.id);
+        const { error: likesErr } = await supabase.from('likes').delete().eq('user_id', user.id);
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:likes',message:'Likes delete result',data:{likesError:likesErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+
         // ユーザープロフィールを削除
-        await supabase.from('users').delete().eq('id', user.id);
+        const { error: usersErr } = await supabase.from('users').delete().eq('id', user.id);
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:users',message:'Users delete result',data:{usersError:usersErr?.message||null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+
         // サインアウト
         await supabase.auth.signOut();
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:signout',message:'Signout completed, NOTE: auth.users NOT deleted (requires admin API)',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+
         router.replace('/login');
         showToast({ message: 'アカウントを削除しました', type: 'success' });
-      } catch (e) {
+      } catch (e: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:catch',message:'Delete error caught',data:{errorMessage:e?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         console.error('Delete account error:', e);
         showToast({ message: 'アカウントの削除に失敗しました', type: 'error' });
       }

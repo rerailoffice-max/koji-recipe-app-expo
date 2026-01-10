@@ -20,6 +20,7 @@ import {
   ChatMessageBubble,
   QuickReplyChips,
   ComposerBar,
+  RecipeLoadingBubble,
   type ChatAttachment,
   type QuickReply,
 } from '@/components/chat';
@@ -450,13 +451,12 @@ export default function ComposeScreen() {
       text: 'いい感じ、下書きして',
     };
     
-    // ローディングメッセージを追加
-    const loadingMsgId = `a-draft-${Date.now() + 1}`;
+    // ユーザーメッセージのみ追加（ローディングはRecipeLoadingBubbleで表示）
     const currentMessages = [...messages, userMsg];
-    setMessages([
-      ...currentMessages,
-      { id: loadingMsgId, role: 'ai', text: 'レシピを下書きに作成中...' },
-    ]);
+    setMessages(currentMessages);
+    
+    // 成功/エラー時のAIメッセージ用ID
+    const resultMsgId = `a-draft-${Date.now() + 1}`;
     
     try {
       // 直前の抽出が残っていれば中断
@@ -481,14 +481,11 @@ export default function ComposeScreen() {
       if (res.ok && json?.success && json?.recipe) {
         const recipe = json.recipe;
         
-        // 成功メッセージを表示
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === loadingMsgId
-              ? { ...m, text: `「${recipe.title}」の下書きを作成しました！\n編集画面に移動します...` }
-              : m
-          )
-        );
+        // 成功メッセージを追加
+        setMessages((prev) => [
+          ...prev,
+          { id: resultMsgId, role: 'ai' as const, text: `「${recipe.title}」の下書きを作成しました！\n編集画面に移動します...` },
+        ]);
         setSuggestions([]);
         
         // 会話履歴から画像を探す（最新の画像を使用）
@@ -521,26 +518,22 @@ export default function ComposeScreen() {
           });
         }, 1000);
       } else {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === loadingMsgId
-              ? { ...m, text: json?.error || 'レシピの抽出に失敗しました。もう一度お試しください。' }
-              : m
-          )
-        );
+        // エラーメッセージを追加
+        setMessages((prev) => [
+          ...prev,
+          { id: resultMsgId, role: 'ai' as const, text: json?.error || 'レシピの抽出に失敗しました。もう一度お試しください。' },
+        ]);
       }
     } catch (e) {
       if ((e as any)?.name === 'AbortError') {
         return;
       }
       console.error('Extract recipe error:', e);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingMsgId
-            ? { ...m, text: '通信に失敗しました。もう一度お試しください。' }
-            : m
-        )
-      );
+      // 通信エラーメッセージを追加
+      setMessages((prev) => [
+        ...prev,
+        { id: resultMsgId, role: 'ai' as const, text: '通信に失敗しました。もう一度お試しください。' },
+      ]);
     } finally {
       setIsGeneratingDraft(false);
     }
@@ -849,11 +842,16 @@ export default function ComposeScreen() {
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
             <>
-              {/* ローディング */}
-              {isThinking && (
+              {/* 通常のローディング */}
+              {isThinking && !isGeneratingDraft && (
                 <View style={styles.thinkingWrapper}>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
+              )}
+
+              {/* レシピ下書き生成中のアニメーション */}
+              {isGeneratingDraft && (
+                <RecipeLoadingBubble aiAvatarSrc={AI_AVATAR_SOURCE} />
               )}
 
               {/* AIの返答後のチップ */}

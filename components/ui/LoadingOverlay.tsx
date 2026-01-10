@@ -13,9 +13,25 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // ローディングメッセージの配列
 const LOADING_MESSAGES = [
-  '材料を確認中',
-  'レシピを考案中',
+  '食材を煮込み中',
+  '味を染み込ませ中',
   '仕上げ中',
+];
+
+// 泡の設定
+const BUBBLE_CONFIG = [
+  { size: 8, left: 20, delay: 0 },
+  { size: 6, left: 45, delay: 300 },
+  { size: 10, left: 70, delay: 600 },
+  { size: 7, left: 35, delay: 900 },
+  { size: 5, left: 60, delay: 1200 },
+];
+
+// 湯気の設定
+const STEAM_CONFIG = [
+  { left: 25, delay: 0 },
+  { left: 50, delay: 400 },
+  { left: 75, delay: 800 },
 ];
 
 export interface LoadingOverlayProps {
@@ -31,9 +47,25 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
   // アニメーション用の値
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
-  const rotateAnim = React.useRef(new Animated.Value(0)).current;
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const potShakeAnim = React.useRef(new Animated.Value(0)).current;
+  const lidBounceAnim = React.useRef(new Animated.Value(0)).current;
   const [messageIndex, setMessageIndex] = React.useState(0);
+
+  // 泡のアニメーション
+  const bubbleAnims = React.useRef(
+    BUBBLE_CONFIG.map(() => ({
+      translateY: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
+
+  // 湯気のアニメーション
+  const steamAnims = React.useRef(
+    STEAM_CONFIG.map(() => ({
+      translateY: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
 
   // 表示/非表示アニメーション
   React.useEffect(() => {
@@ -69,49 +101,148 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
     }
   }, [visible, fadeAnim, scaleAnim]);
 
-  // 回転アニメーション（スピナー）
+  // 鍋の揺れアニメーション
   React.useEffect(() => {
     if (!visible) return;
 
-    const rotateAnimation = Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 1500,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
-    rotateAnimation.start();
-
-    return () => rotateAnimation.stop();
-  }, [visible, rotateAnim]);
-
-  // パルスアニメーション
-  React.useEffect(() => {
-    if (!visible) return;
-
-    const pulseAnimation = Animated.loop(
+    const shakeAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
+        Animated.timing(potShakeAnim, {
+          toValue: 1,
+          duration: 150,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
+        Animated.timing(potShakeAnim, {
+          toValue: -1,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(potShakeAnim, {
+          toValue: 0,
+          duration: 150,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     );
 
-    pulseAnimation.start();
+    shakeAnimation.start();
+    return () => shakeAnimation.stop();
+  }, [visible, potShakeAnim]);
 
-    return () => pulseAnimation.stop();
-  }, [visible, pulseAnim]);
+  // 蓋のバウンスアニメーション
+  React.useEffect(() => {
+    if (!visible) return;
+
+    const bounceAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(lidBounceAnim, {
+          toValue: -6,
+          duration: 200,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(lidBounceAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.bounce,
+          useNativeDriver: true,
+        }),
+        Animated.delay(400),
+      ])
+    );
+
+    bounceAnimation.start();
+    return () => bounceAnimation.stop();
+  }, [visible, lidBounceAnim]);
+
+  // 泡のアニメーション
+  React.useEffect(() => {
+    if (!visible) return;
+
+    const bubbleAnimations = bubbleAnims.map((anim, index) => {
+      const { delay } = BUBBLE_CONFIG[index];
+
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(anim.translateY, {
+              toValue: -30,
+              duration: 1000,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(anim.opacity, {
+                toValue: 0.8,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+              Animated.timing(anim.opacity, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+          Animated.timing(anim.translateY, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    });
+
+    bubbleAnimations.forEach((anim) => anim.start());
+    return () => bubbleAnimations.forEach((anim) => anim.stop());
+  }, [visible, bubbleAnims]);
+
+  // 湯気のアニメーション
+  React.useEffect(() => {
+    if (!visible) return;
+
+    const steamAnimations = steamAnims.map((anim, index) => {
+      const { delay } = STEAM_CONFIG[index];
+
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(anim.translateY, {
+              toValue: -25,
+              duration: 1500,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(anim.opacity, {
+                toValue: 0.6,
+                duration: 300,
+                useNativeDriver: true,
+              }),
+              Animated.timing(anim.opacity, {
+                toValue: 0,
+                duration: 1200,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+          Animated.timing(anim.translateY, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    });
+
+    steamAnimations.forEach((anim) => anim.start());
+    return () => steamAnimations.forEach((anim) => anim.stop());
+  }, [visible, steamAnims]);
 
   // メッセージ切り替え
   React.useEffect(() => {
@@ -127,10 +258,10 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
     return () => clearInterval(interval);
   }, [visible, message]);
 
-  // 回転の補間
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+  // 鍋の揺れ補間
+  const potRotate = potShakeAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-2deg', '0deg', '2deg'],
   });
 
   const currentMessage = message || LOADING_MESSAGES[messageIndex];
@@ -156,42 +287,91 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
             },
           ]}
         >
-          {/* スピナー */}
-          <Animated.View
-            style={[
-              styles.spinnerContainer,
-              {
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          >
-            {/* 外側のリング */}
+          {/* 鍋コンテナ */}
+          <View style={styles.potContainer}>
+            {/* 湯気 */}
+            <View style={styles.steamContainer}>
+              {STEAM_CONFIG.map((config, index) => (
+                <Animated.Text
+                  key={`steam-${index}`}
+                  style={[
+                    styles.steam,
+                    {
+                      left: `${config.left}%`,
+                      color: colors.mutedForeground,
+                      opacity: steamAnims[index].opacity,
+                      transform: [
+                        { translateY: steamAnims[index].translateY },
+                        { translateX: -6 },
+                      ],
+                    },
+                  ]}
+                >
+                  ~
+                </Animated.Text>
+              ))}
+            </View>
+
+            {/* 蓋 */}
             <Animated.View
               style={[
-                styles.spinnerOuter,
+                styles.lid,
                 {
-                  borderColor: `${colors.primary}20`,
-                  transform: [{ rotate }],
+                  backgroundColor: '#8B7355',
+                  transform: [{ translateY: lidBounceAnim }],
                 },
               ]}
             >
-              {/* アクセントアーク */}
-              <View
-                style={[
-                  styles.spinnerArc,
-                  { borderTopColor: colors.primary },
-                ]}
-              />
+              {/* 蓋の取っ手 */}
+              <View style={[styles.lidHandle, { backgroundColor: '#6B5344' }]} />
+              {/* 蓋のハイライト */}
+              <View style={[styles.lidHighlight, { backgroundColor: '#A08B70' }]} />
             </Animated.View>
 
-            {/* 中央のドット */}
-            <View
+            {/* 鍋本体 */}
+            <Animated.View
               style={[
-                styles.spinnerCenter,
-                { backgroundColor: colors.primary },
+                styles.pot,
+                {
+                  backgroundColor: '#6B4423',
+                  transform: [{ rotate: potRotate }],
+                },
               ]}
-            />
-          </Animated.View>
+            >
+              {/* 鍋の中身（スープ） */}
+              <View style={[styles.potContent, { backgroundColor: colors.primary }]}>
+                {/* 泡 */}
+                {BUBBLE_CONFIG.map((config, index) => (
+                  <Animated.View
+                    key={`bubble-${index}`}
+                    style={[
+                      styles.bubble,
+                      {
+                        width: config.size,
+                        height: config.size,
+                        borderRadius: config.size / 2,
+                        left: `${config.left}%`,
+                        backgroundColor: `${colors.background}CC`,
+                        opacity: bubbleAnims[index].opacity,
+                        transform: [
+                          { translateY: bubbleAnims[index].translateY },
+                          { translateX: -config.size / 2 },
+                        ],
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              {/* 鍋のハイライト */}
+              <View style={[styles.potHighlight, { backgroundColor: '#8B6B43' }]} />
+
+              {/* 鍋の取っ手（左） */}
+              <View style={[styles.potHandleLeft, { backgroundColor: '#5B3413' }]} />
+              {/* 鍋の取っ手（右） */}
+              <View style={[styles.potHandleRight, { backgroundColor: '#5B3413' }]} />
+            </Animated.View>
+          </View>
 
           {/* メッセージ */}
           <Text style={[styles.message, { color: colors.text }]}>
@@ -216,7 +396,7 @@ export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
 
           {/* サブテキスト */}
           <Text style={[styles.subText, { color: colors.mutedForeground }]}>
-            GOCHISOシェフが考え中
+            麹でじっくり調理中
           </Text>
         </Animated.View>
       </Animated.View>
@@ -252,35 +432,97 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 16,
   },
-  spinnerContainer: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+  potContainer: {
+    width: 120,
+    height: 110,
     marginBottom: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  spinnerOuter: {
+  steamContainer: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 30,
   },
-  spinnerArc: {
+  steam: {
     position: 'absolute',
-    top: -3,
-    left: -3,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    borderColor: 'transparent',
-    borderTopWidth: 3,
+    fontSize: 18,
+    fontWeight: '300',
+    bottom: 0,
   },
-  spinnerCenter: {
+  lid: {
+    width: 80,
+    height: 12,
+    borderRadius: 6,
+    marginBottom: -2,
+    zIndex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lidHandle: {
+    position: 'absolute',
+    top: -6,
     width: 16,
-    height: 16,
+    height: 8,
+    borderRadius: 4,
+  },
+  lidHighlight: {
+    position: 'absolute',
+    top: 2,
+    left: 8,
+    width: 24,
+    height: 3,
+    borderRadius: 1.5,
+    opacity: 0.5,
+  },
+  pot: {
+    width: 90,
+    height: 55,
     borderRadius: 8,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  potContent: {
+    position: 'absolute',
+    top: 5,
+    left: 5,
+    right: 5,
+    height: 35,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    bottom: 5,
+  },
+  potHighlight: {
+    position: 'absolute',
+    left: 5,
+    top: 8,
+    width: 4,
+    height: 30,
+    borderRadius: 2,
+    opacity: 0.4,
+  },
+  potHandleLeft: {
+    position: 'absolute',
+    left: -8,
+    top: 20,
+    width: 12,
+    height: 8,
+    borderRadius: 4,
+  },
+  potHandleRight: {
+    position: 'absolute',
+    right: -8,
+    top: 20,
+    width: 12,
+    height: 8,
+    borderRadius: 4,
   },
   message: {
     fontSize: 18,

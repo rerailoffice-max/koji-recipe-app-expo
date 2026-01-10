@@ -566,27 +566,6 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            {/* 保存ボタン */}
-            <Pressable
-              onPress={handleSaveProfile}
-              disabled={isSaving}
-              style={({ pressed }) => [
-                styles.saveButton,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: pressed || isSaving ? 0.8 : 1,
-                },
-              ]}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.primaryForeground} />
-              ) : (
-                <Text style={[styles.saveButtonText, { color: colors.primaryForeground }]}>
-                  変更を保存
-                </Text>
-              )}
-            </Pressable>
-
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* アカウント設定 */}
@@ -801,6 +780,29 @@ export default function SettingsScreen() {
 
             </View>
           </>
+        )}
+
+        {/* プロフィール保存ボタン */}
+        {user && (
+          <Pressable
+            onPress={handleSaveProfile}
+            disabled={isSaving}
+            style={({ pressed }) => [
+              styles.saveButton,
+              {
+                backgroundColor: colors.primary,
+                opacity: pressed || isSaving ? 0.8 : 1,
+              },
+            ]}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+            ) : (
+              <Text style={[styles.saveButtonText, { color: colors.primaryForeground }]}>
+                プロフィールを保存
+              </Text>
+            )}
+          </Pressable>
         )}
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />

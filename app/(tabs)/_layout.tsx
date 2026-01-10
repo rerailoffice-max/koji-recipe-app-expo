@@ -15,24 +15,26 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: `${colors.text}99`, // 60% opacity
+        tabBarInactiveTintColor: `${colors.text}80`, // 50% opacity
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 56 + (Platform.OS === 'ios' ? 34 : 0), // safe area対応
-          paddingBottom: Platform.OS === 'ios' ? 34 : 8,
-          paddingTop: 8,
+          height: 60 + (Platform.OS === 'ios' ? 34 : 0), // safe area対応
+          paddingBottom: Platform.OS === 'ios' ? 34 : 10,
+          paddingTop: 6,
           ...Shadows.sm,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 2,
         },
         tabBarIconStyle: {
-          marginBottom: -2,
+          marginBottom: 0,
         },
       }}>
       <Tabs.Screen
@@ -51,7 +53,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="compose"
         options={{
-          title: 'AI',
+          title: 'レシピ作成',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               size={24}
@@ -64,7 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'プロフィール',
+          title: 'マイページ',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               size={24}

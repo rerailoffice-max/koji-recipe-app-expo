@@ -214,15 +214,16 @@ export default function HomeScreen() {
         console.error('Supabase weekly fetch error:', error);
       } else if (data && data.length > 0) {
         // 日付のラベルを付与（WeeklyRecipe型に合わせる: day, image）
+        // 今日から始まって、月、火、水...と1週間を表示
         const days = ['日', '月', '火', '水', '木', '金', '土'];
         const recipes: WeeklyRecipe[] = data.map((post, index) => {
           const date = new Date();
-          date.setDate(date.getDate() - index);
+          date.setDate(date.getDate() + index); // 今日から未来へ
           return {
             id: post.id,
             title: post.title,
-            image: post.image_url, // imageUrl → image
-            day: days[date.getDay()], // dayLabel → day
+            image: post.image_url,
+            day: days[date.getDay()],
           };
         });
         setWeeklyRecipes(recipes);

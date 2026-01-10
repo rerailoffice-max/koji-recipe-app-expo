@@ -439,3 +439,5 @@
 {"location":"settings.tsx:handleAddPassword:result","message":"Add password result","data":{"error":null},"timestamp":1768066212210,"sessionId":"debug-session","runId":"post-fix-2"}
 {"location":"settings.tsx:doDelete:start","message":"Delete account started (via API)","data":{"userId":"edcfb31e-7bf9-457b-94b0-c4ba1f571335","userEmail":"info.rerail@gmail.com"},"timestamp":1768066267388,"sessionId":"debug-session","runId":"post-fix","hypothesisId":"D,E"}
 {"location":"settings.tsx:doDelete:apiResult","message":"Delete API result","data":{"status":200,"success":true,"error":null},"timestamp":1768066271113,"sessionId":"debug-session","runId":"post-fix","hypothesisId":"D"}
+{"location":"settings.tsx:doDelete:start","message":"Delete account started (via API)","data":{"userId":"fa42bafa-05ae-4357-95fe-3397acb50194","userEmail":"info.rerail@gmail.com"},"timestamp":1768067008975,"sessionId":"debug-session","runId":"post-fix","hypothesisId":"D,E"}
+{"location":"settings.tsx:doDelete:apiResult","message":"Delete API result","data":{"status":200,"success":true,"error":null},"timestamp":1768067012005,"sessionId":"debug-session","runId":"post-fix","hypothesisId":"D"}

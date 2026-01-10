@@ -258,9 +258,7 @@ export default function MyRecipesScreen() {
             >
               <IconSymbol name="gearshape" size={22} color={colors.text} />
             </Pressable>
-            <Pressable style={styles.headerIcon}>
-              <IconSymbol name="bell" size={22} color={colors.text} />
-            </Pressable>
+            {/* 通知機能は将来実装予定のため非表示 */}
           </View>
         </View>
       </View>

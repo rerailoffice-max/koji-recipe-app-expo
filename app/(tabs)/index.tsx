@@ -174,7 +174,8 @@ export default function HomeScreen() {
         query = query.order('created_at', { ascending: false });
       }
       
-      const { data, error } = await query.limit(20);
+      // 全ての公開投稿を取得（制限なし）
+      const { data, error } = await query.limit(100);
       
       if (error) {
         console.error('Supabase fetch error:', error);

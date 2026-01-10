@@ -860,18 +860,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   ingredientName: {
-    flex: 1,
+    flex: 2,
     padding: Spacing.md,
-    fontSize: 16,
+    fontSize: 14,
   },
   divider: {
     width: 1,
     marginVertical: Spacing.sm,
   },
   ingredientAmount: {
-    width: 100,
+    flex: 1,
+    minWidth: 80,
     padding: Spacing.md,
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'right',
   },
   removeButton: {

@@ -1,21 +1,20 @@
-import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Text, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
+import {
+    AppBar,
+    CardPost,
+    SearchFilter,
+    TabBar,
+    WeeklyBanner,
+    type Ingredient,
+    type WeeklyRecipe,
+} from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
-import {
-  AppBar,
-  TabBar,
-  SearchFilter,
-  WeeklyBanner,
-  CardPost,
-  type WeeklyRecipe,
-  type Ingredient,
-} from '@/components/ui';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
@@ -245,12 +244,22 @@ export default function HomeScreen() {
     fetchWeeklyRecipes();
   }, [fetchWeeklyRecipes]);
 
-  // 投稿/下書き作成後に戻ってきたとき、リロード無しで一覧を最新化
+  // キャッシュ用の最終取得時刻
+  const lastFetchRef = React.useRef<number>(0);
+  const CACHE_DURATION = 30000; // 30秒
+
+  // 画面フォーカス時にデータを再取得（キャッシュ有効なら省略）
   useFocusEffect(
     React.useCallback(() => {
+      const now = Date.now();
+      // 30秒以内なら再取得しない（高速化）
+      if (now - lastFetchRef.current < CACHE_DURATION) {
+        return;
+      }
+      
+      lastFetchRef.current = now;
       fetchPosts(true);
       fetchWeeklyRecipes();
-      return undefined;
     }, [fetchPosts, fetchWeeklyRecipes])
   );
 

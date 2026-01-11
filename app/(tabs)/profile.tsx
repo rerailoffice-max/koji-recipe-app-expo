@@ -89,38 +89,6 @@ export default function MyRecipesScreen() {
   const lastFetchRef = React.useRef<number>(0);
   const CACHE_DURATION = 30000; // 30秒
 
-  // 画面フォーカス時にデータを再取得（キャッシュ有効なら省略）
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!user) return;
-      
-      const now = Date.now();
-      // 30秒以内なら再取得しない
-      if (now - lastFetchRef.current < CACHE_DURATION) {
-        return;
-      }
-      
-      lastFetchRef.current = now;
-      
-      // アバターとレシピを並列取得
-      const refreshData = async () => {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('avatar_url')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.avatar_url) {
-          setUserAvatarUrl(profile.avatar_url);
-        }
-        
-        fetchRecipes(true);
-      };
-      
-      refreshData();
-    }, [user, fetchRecipes])
-  );
-
   // レシピデータを取得（並列実行で高速化）
   const fetchRecipes = React.useCallback(async (refresh = false) => {
     if (!user) return;
@@ -213,11 +181,37 @@ export default function MyRecipesScreen() {
     }
   }, [user, fetchRecipes]);
 
-  // 強制リフレッシュ用（下書き保存後などに呼ばれる）
-  const forceRefresh = React.useCallback(() => {
-    lastFetchRef.current = 0; // キャッシュ無効化
-    if (user) fetchRecipes(true);
-  }, [user, fetchRecipes]);
+  // 画面フォーカス時にデータを再取得（キャッシュ有効なら省略）
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!user) return;
+      
+      const now = Date.now();
+      // 30秒以内なら再取得しない（高速化）
+      if (now - lastFetchRef.current < CACHE_DURATION) {
+        return;
+      }
+      
+      lastFetchRef.current = now;
+      
+      // アバターとレシピを並列取得
+      const refreshData = async () => {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.avatar_url) {
+          setUserAvatarUrl(profile.avatar_url);
+        }
+        
+        fetchRecipes(true);
+      };
+      
+      refreshData();
+    }, [user, fetchRecipes])
+  );
 
   const handleRecipePress = (id: string) => {
     router.push(`/posts/${id}` as any);

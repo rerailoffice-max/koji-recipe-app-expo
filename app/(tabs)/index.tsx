@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // API Base URL - 本番用
@@ -428,7 +428,15 @@ export default function HomeScreen() {
       {/* AppBar */}
       <AppBar
         titleComponent={
-          <Text style={styles.logoText}>GOCHISOKOJI</Text>
+          Platform.OS === 'web' ? (
+            <img
+              src="/logo-gochisokoji.png"
+              alt="GOCHISOKOJI"
+              style={{ height: 28, width: 'auto' }}
+            />
+          ) : (
+            <Text style={styles.logoText}>GOCHISOKOJI</Text>
+          )
         }
       />
 

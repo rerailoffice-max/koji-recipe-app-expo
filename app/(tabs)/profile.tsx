@@ -263,14 +263,14 @@ export default function MyRecipesScreen() {
           <View style={[styles.loginPromptIcon, { backgroundColor: 'transparent' }]}>
             {Platform.OS === 'web' ? (
               <img
-                src="/apple-touch-icon.png"
+                src="/login-logo.png"
                 alt="GOCHISOKOJI"
-                style={{ width: 88, height: 88, borderRadius: 20 }}
+                style={{ width: 120, height: 120, borderRadius: 20 }}
               />
             ) : (
               <Image
                 source={require('@/assets/images/icon.png')}
-                style={{ width: 88, height: 88, borderRadius: 20 }}
+                style={{ width: 120, height: 120, borderRadius: 20 }}
               />
             )}
           </View>

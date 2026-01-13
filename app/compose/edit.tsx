@@ -53,6 +53,8 @@ interface FormData {
   cooking_time_min: string;
   // タグ
   tags: string[];
+  // コツ
+  tips: string;
 }
 
 // 麹の種類
@@ -112,6 +114,13 @@ export default function RecipeEditScreen() {
     steps?: string;
     image_base64?: string;
     image_url?: string;
+    // 栄養情報
+    calories?: string;
+    salt_g?: string;
+    cooking_time_min?: string;
+    // タグ・コツ
+    tags?: string;
+    tips?: string;
   }>();
 
   // フォームの初期値を設定
@@ -127,6 +136,7 @@ export default function RecipeEditScreen() {
     calories: '',
     cooking_time_min: '',
     tags: [],
+    tips: '',
   });
 
   const [imageUri, setImageUri] = React.useState<string | null>(null);
@@ -171,6 +181,9 @@ export default function RecipeEditScreen() {
         stepsCount: initialSteps.length,
       });
 
+      // タグのパース
+      const initialTags = safeJsonParse<string[]>(params.tags, []);
+
       setFormData({
         title: titleParam || '',
         description: params.description || '',
@@ -179,10 +192,13 @@ export default function RecipeEditScreen() {
         ingredients: initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }],
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: params.image_url || null,
-        salt_g: '',
-        calories: '',
-        cooking_time_min: '',
-        tags: [],
+        // 栄養情報をパラメータから設定
+        salt_g: params.salt_g || '',
+        calories: params.calories || '',
+        cooking_time_min: params.cooking_time_min || '',
+        // タグ・コツをパラメータから設定
+        tags: initialTags,
+        tips: params.tips || '',
       });
       
       // チャットから渡された画像を設定（Base64）
@@ -203,7 +219,7 @@ export default function RecipeEditScreen() {
     if (draftIdParam) {
       setDraftId(draftIdParam);
     }
-  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url]);
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url, params.calories, params.salt_g, params.cooking_time_min, params.tags, params.tips]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 
@@ -712,11 +728,12 @@ export default function RecipeEditScreen() {
               onChange={(value) => setFormData((prev) => ({ ...prev, difficulty: value }))}
             />
 
-            {/* 栄養情報・調理時間 */}
+            {/* 栄養情報・調理時間（2列レイアウト） */}
             <View style={styles.fieldContainer}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>栄養情報（任意）</Text>
+              {/* 1行目: 調理時間 / カロリー */}
               <View style={styles.nutritionRow}>
-                <View style={styles.nutritionField}>
+                <View style={styles.nutritionFieldHalf}>
                   <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>⏱ 調理時間</Text>
                   <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <TextInput
@@ -730,7 +747,7 @@ export default function RecipeEditScreen() {
                     <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>分</Text>
                   </View>
                 </View>
-                <View style={styles.nutritionField}>
+                <View style={styles.nutritionFieldHalf}>
                   <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🔥 カロリー</Text>
                   <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <TextInput
@@ -744,7 +761,10 @@ export default function RecipeEditScreen() {
                     <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>kcal</Text>
                   </View>
                 </View>
-                <View style={styles.nutritionField}>
+              </View>
+              {/* 2行目: 塩分（フルwidth） */}
+              <View style={[styles.nutritionRow, { marginTop: Spacing.sm }]}>
+                <View style={styles.nutritionFieldFull}>
                   <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🧂 塩分</Text>
                   <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <TextInput
@@ -881,6 +901,23 @@ export default function RecipeEditScreen() {
                 <IconSymbol name="plus" size={16} color={colors.primary} />
                 <Text style={[styles.addButtonText, { color: colors.primary }]}>手順を追加</Text>
               </Pressable>
+            </View>
+
+            {/* コツ・ポイント */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>コツ・ポイント（任意）</Text>
+              <TextInput
+                value={formData.tips}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, tips: text }))}
+                placeholder="調理のコツやポイントがあれば入力してください"
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={3}
+                style={[
+                  styles.textArea,
+                  { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              />
             </View>
           </View>
         </ScrollView>
@@ -1125,11 +1162,18 @@ const styles = StyleSheet.create({
   nutritionRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    flexWrap: 'wrap',
   },
   nutritionField: {
     flex: 1,
     minWidth: 100,
+  },
+  nutritionFieldHalf: {
+    flex: 1,
+    minWidth: '45%' as any,
+  },
+  nutritionFieldFull: {
+    flex: 1,
+    width: '100%',
   },
   nutritionLabel: {
     fontSize: 12,

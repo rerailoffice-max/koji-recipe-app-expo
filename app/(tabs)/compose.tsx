@@ -103,6 +103,8 @@ type MenuIdea = {
   keyIngredients?: string[];
   steps?: string[];
   timeMinutes?: number;
+  caloriesKcal?: number;
+  saltG?: number;
   // 旧API（1行）
   menuIdea?: string;
   // 共通
@@ -117,6 +119,8 @@ type MenuIdeaCard = {
   keyIngredients: string[];
   steps: string[];
   timeMinutes?: number;
+  caloriesKcal?: number;
+  saltG?: number;
 };
 
 function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
@@ -135,6 +139,12 @@ function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
   const timeMinutes = typeof input.timeMinutes === 'number' && Number.isFinite(input.timeMinutes)
     ? Math.round(input.timeMinutes)
     : undefined;
+  const caloriesKcal = typeof input.caloriesKcal === 'number' && Number.isFinite(input.caloriesKcal)
+    ? Math.round(input.caloriesKcal)
+    : undefined;
+  const saltG = typeof input.saltG === 'number' && Number.isFinite(input.saltG)
+    ? Math.round(input.saltG * 10) / 10
+    : undefined;
 
 
   if (titleFromJson && summaryFromJson) {
@@ -145,6 +155,8 @@ function normalizeMenuIdeaCard(input: MenuIdea): MenuIdeaCard | null {
       keyIngredients: keyIngredientsFromJson,
       steps: stepsFromJson,
       ...(timeMinutes ? { timeMinutes } : {}),
+      ...(caloriesKcal ? { caloriesKcal } : {}),
+      ...(saltG ? { saltG } : {}),
     };
   }
 
@@ -522,6 +534,12 @@ export default function ComposeScreen() {
             steps: JSON.stringify(recipe.steps || []),
             tips: recipe.tips || '',
             image_base64: imageBase64 || '',
+            // 栄養情報
+            calories: recipe.calories ? String(recipe.calories) : '',
+            salt_g: recipe.salt_g ? String(recipe.salt_g) : '',
+            cooking_time_min: recipe.cooking_time_min ? String(recipe.cooking_time_min) : '',
+            // タグ
+            tags: JSON.stringify(recipe.tags || []),
           },
         };
         setIsDraftComplete(true);
@@ -966,11 +984,23 @@ export default function ComposeScreen() {
                                       <Text style={[styles.exampleTitle, { color: colors.text }]} numberOfLines={2}>
                                         {menu.title}
                                       </Text>
-                                      {typeof menu.timeMinutes === 'number' && (
-                                        <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
-                                          {menu.timeMinutes}分
-                                        </Text>
-                                      )}
+                                      <View style={styles.exampleMetaRow}>
+                                        {typeof menu.timeMinutes === 'number' && (
+                                          <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
+                                            ⏱{menu.timeMinutes}分
+                                          </Text>
+                                        )}
+                                        {typeof menu.caloriesKcal === 'number' && (
+                                          <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
+                                            🔥{menu.caloriesKcal}kcal
+                                          </Text>
+                                        )}
+                                        {typeof menu.saltG === 'number' && (
+                                          <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
+                                            🧂{menu.saltG}g
+                                          </Text>
+                                        )}
+                                      </View>
                                     </View>
                                     <Text style={[styles.exampleText, { color: colors.text }]} numberOfLines={4}>
                                       {menu.summary}
@@ -1276,8 +1306,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   exampleMeta: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+  },
+  exampleMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    alignItems: 'center',
   },
   kojiLabel: {
     fontSize: FontSize.sm,

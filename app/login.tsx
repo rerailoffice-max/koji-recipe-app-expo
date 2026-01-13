@@ -264,12 +264,12 @@ export default function LoginScreen() {
 
       {/* ロゴ・タイトル */}
       <View style={styles.header}>
-        <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
+        <View style={[styles.logoContainer, { backgroundColor: 'transparent' }]}>
           {Platform.OS === 'web' ? (
             <img
-              src="/apple-touch-icon.png"
+              src="/login-logo.png"
               alt="GOCHISOKOJI"
-              style={{ width: 64, height: 64, borderRadius: 16 }}
+              style={{ width: 88, height: 88, borderRadius: 20 }}
             />
           ) : (
             <IconSymbol name="leaf" size={48} color="#ffffff" />

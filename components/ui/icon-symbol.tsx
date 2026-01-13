@@ -123,10 +123,5 @@ export function IconSymbol({
   weight?: SymbolWeight;
 }) {
   const iconName = MAPPING[name] ?? 'help-outline'; // フォールバック
-  // #region agent log
-  if (!MAPPING[name]) {
-    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'icon-symbol.tsx:IconSymbol',message:'Missing icon mapping',data:{requestedName:name,fallbackUsed:iconName},timestamp:Date.now(),sessionId:'debug-session',runId:'icon-debug',hypothesisId:'A,B'})}).catch(()=>{});
-  }
-  // #endregion
   return <MaterialIcons color={color} size={size} name={iconName} style={style} />;
 }

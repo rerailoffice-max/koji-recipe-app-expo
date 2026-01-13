@@ -174,7 +174,7 @@ export default function HomeScreen() {
       }
       
       // 全ての公開投稿を取得（制限なし）
-      const { data, error } = await query.limit(100);
+      const { data, error } = await query;
       
       if (error) {
         console.error('Supabase fetch error:', error);
@@ -390,7 +390,11 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* AppBar */}
-      <AppBar title="麹レシピ" />
+      <AppBar
+        titleComponent={
+          <Text style={styles.logoText}>GOCHISOKOJI</Text>
+        }
+      />
 
       {/* TabBar */}
       <TabBar tabs={TABS} activeId={activeTab} onTabChange={(id) => setActiveTab(id as 'recent' | 'popular')} />
@@ -434,5 +438,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
+  },
+  logoText: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 2,
+    color: '#000',
   },
 });

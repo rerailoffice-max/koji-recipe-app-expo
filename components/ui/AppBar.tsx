@@ -6,11 +6,12 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface AppBarProps {
   title?: string;
+  titleComponent?: React.ReactNode;
   leftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
 }
 
-export function AppBar({ title, leftAction, rightAction }: AppBarProps) {
+export function AppBar({ title, titleComponent, leftAction, rightAction }: AppBarProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -31,11 +32,13 @@ export function AppBar({ title, leftAction, rightAction }: AppBarProps) {
         <View style={styles.side}>{leftAction}</View>
 
         {/* タイトル */}
-        {title && (
+        {titleComponent ? (
+          <View style={styles.titleContainer}>{titleComponent}</View>
+        ) : title ? (
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
             {title}
           </Text>
-        )}
+        ) : null}
 
         {/* 右側アクション */}
         <View style={styles.side}>{rightAction}</View>
@@ -73,6 +76,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

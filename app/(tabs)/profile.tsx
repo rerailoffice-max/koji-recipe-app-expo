@@ -118,8 +118,7 @@ export default function MyRecipesScreen() {
               koji_type
             )
           `)
-          .eq('user_id', user.id)
-          .limit(100),
+          .eq('user_id', user.id),
         
         // 自分のレシピ（公開済み）
         supabase
@@ -127,8 +126,7 @@ export default function MyRecipesScreen() {
           .select('id, title, image_url, description, koji_type')
           .eq('user_id', user.id)
           .eq('is_public', true)
-          .order('created_at', { ascending: false })
-          .limit(100),
+          .order('created_at', { ascending: false }),
         
         // 下書き（非公開）
         supabase
@@ -136,8 +134,7 @@ export default function MyRecipesScreen() {
           .select('id, title, image_url, description, koji_type')
           .eq('user_id', user.id)
           .eq('is_public', false)
-          .order('updated_at', { ascending: false })
-          .limit(100),
+          .order('updated_at', { ascending: false }),
       ]);
 
       // 保存したレシピを処理

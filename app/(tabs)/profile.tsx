@@ -327,7 +327,7 @@ export default function MyRecipesScreen() {
               style={styles.headerIcon}
               onPress={() => Linking.openURL(KOJI_PURCHASE_URL)}
             >
-              <Text style={styles.headerIconEmoji}>🛒</Text>
+              <IconSymbol name="cart" size={22} color={colors.text} />
             </Pressable>
             {/* アプリを共有 */}
             <Pressable
@@ -342,7 +342,7 @@ export default function MyRecipesScreen() {
                 }
               }}
             >
-              <Text style={styles.headerIconEmoji}>📤</Text>
+              <IconSymbol name="square.and.arrow.up" size={22} color={colors.text} />
             </Pressable>
             {/* 設定 */}
             <Pressable
@@ -523,9 +523,6 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerIconEmoji: {
-    fontSize: 20,
   },
   scrollView: {
     flex: 1,

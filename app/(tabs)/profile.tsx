@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -260,7 +261,18 @@ export default function MyRecipesScreen() {
         {/* ログイン促進画面 */}
         <View style={styles.loginPromptFullScreen}>
           <View style={[styles.loginPromptIcon, { backgroundColor: colors.surface }]}>
-            <IconSymbol name="person.crop.circle" size={64} color={colors.mutedForeground} />
+            {Platform.OS === 'web' ? (
+              <img
+                src="/logo-gochisokoji.png"
+                alt="GOCHISOKOJI"
+                style={{ width: 120, height: 40, objectFit: 'contain' }}
+              />
+            ) : (
+              <Image
+                source={require('@/assets/images/icon.png')}
+                style={{ width: 64, height: 64, borderRadius: 32 }}
+              />
+            )}
           </View>
           <Text style={[styles.loginPromptTitle, { color: colors.text }]}>
             ログインしてください

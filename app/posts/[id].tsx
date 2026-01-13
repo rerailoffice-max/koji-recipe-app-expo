@@ -307,35 +307,39 @@ export default function PostDetailScreen() {
           </Pressable>
         }
         rightAction={
-          isOwner ? (
+          isOwner || isAdmin ? (
             <View style={styles.appBarRightActions}>
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/compose/edit',
-                    params: {
-                      draftId: post.id,
-                      title: post.title || '',
-                      description: post.description || '',
-                      koji_type: post.koji_type || '中華麹',
-                      difficulty: post.difficulty || 'かんたん',
-                      ingredients: JSON.stringify(post.ingredients || []),
-                      steps: JSON.stringify(post.steps || []),
-                      image_url: post.image_url || '',
-                    },
-                  })
-                }
-                style={styles.appBarButton}
-              >
-                <Text style={[styles.editButtonText, { color: colors.text }]}>編集</Text>
-              </Pressable>
+              {/* 編集ボタン（オーナーのみ） */}
+              {isOwner && (
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/compose/edit',
+                      params: {
+                        draftId: post.id,
+                        title: post.title || '',
+                        description: post.description || '',
+                        koji_type: post.koji_type || '中華麹',
+                        difficulty: post.difficulty || 'かんたん',
+                        ingredients: JSON.stringify(post.ingredients || []),
+                        steps: JSON.stringify(post.steps || []),
+                        image_url: post.image_url || '',
+                      },
+                    })
+                  }
+                  style={styles.appBarButton}
+                >
+                  <Text style={[styles.editButtonText, { color: colors.text }]}>編集</Text>
+                </Pressable>
+              )}
+              {/* 削除ボタン（オーナーまたは管理者） */}
               <Pressable
                 onPress={handleDeletePost}
                 disabled={isDeleting}
                 style={[styles.appBarButton, { opacity: isDeleting ? 0.5 : 1 }]}
               >
                 <Text style={[styles.deleteButtonText, { color: '#DC2626' }]}>
-                  削除
+                  {isAdmin && !isOwner ? '管理者削除' : '削除'}
                 </Text>
               </Pressable>
             </View>

@@ -112,7 +112,7 @@ export default function MyRecipesScreen() {
             )
           `)
           .eq('user_id', user.id)
-          .limit(20),
+          .limit(100),
         
         // 自分のレシピ（公開済み）
         supabase
@@ -121,7 +121,7 @@ export default function MyRecipesScreen() {
           .eq('user_id', user.id)
           .eq('is_public', true)
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(100),
         
         // 下書き（非公開）
         supabase
@@ -130,7 +130,7 @@ export default function MyRecipesScreen() {
           .eq('user_id', user.id)
           .eq('is_public', false)
           .order('updated_at', { ascending: false })
-          .limit(20),
+          .limit(100),
       ]);
 
       // 保存したレシピを処理

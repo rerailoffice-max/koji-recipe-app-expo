@@ -11,10 +11,12 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -22,6 +24,9 @@ import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useToast } from '@/contexts/ToastContext';
 import type { User } from '@supabase/supabase-js';
+
+const APP_URL = 'https://www.gochisokoji.com';
+const KOJI_PURCHASE_URL = 'https://base.kojiyaboutique.com'; // こうじ購入ページURL（仮）
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
@@ -849,6 +854,57 @@ export default function SettingsScreen() {
             </Text>
           </View>
         )}
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* その他 */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            その他
+          </Text>
+
+          {/* こうじ購入ページ */}
+          <Pressable
+            onPress={() => Linking.openURL(KOJI_PURCHASE_URL)}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <IconSymbol name="cart" size={18} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.text }]}>
+              麹を購入する
+            </Text>
+          </Pressable>
+
+          {/* アプリ共有 */}
+          <Pressable
+            onPress={async () => {
+              try {
+                await Clipboard.setStringAsync(APP_URL);
+                showToast({ message: 'URLをコピーしました', type: 'success' });
+              } catch (e) {
+                console.error('Copy URL error:', e);
+                showToast({ message: 'コピーに失敗しました', type: 'error' });
+              }
+            }}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <IconSymbol name="square.and.arrow.up" size={18} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.text }]}>
+              アプリを共有する
+            </Text>
+          </Pressable>
+        </View>
 
         {/* フッター */}
         <View style={styles.footer}>

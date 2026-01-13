@@ -105,6 +105,7 @@ export default function RecipeEditScreen() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSavingDraft, setIsSavingDraft] = React.useState(false);
   const [draftId, setDraftId] = React.useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = React.useState(false);
 
   // パラメータからフォームデータを設定（params変更時に実行）
   React.useEffect(() => {
@@ -388,6 +389,18 @@ export default function RecipeEditScreen() {
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
       showToast({ message: 'タイトルを入力してください', type: 'error' });
+      return;
+    }
+
+    // 写真必須チェック
+    if (!imageUri && !formData.image_url) {
+      showToast({ message: '写真を追加してください', type: 'error' });
+      return;
+    }
+
+    // 投稿規定同意チェック
+    if (!agreedToTerms) {
+      showToast({ message: '投稿規定に同意してください', type: 'error' });
       return;
     }
 
@@ -700,6 +713,38 @@ export default function RecipeEditScreen() {
                 <Text style={[styles.addButtonText, { color: colors.primary }]}>手順を追加</Text>
               </Pressable>
             </View>
+
+            {/* 投稿規定 */}
+            <View style={[styles.termsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Pressable
+                onPress={() => setAgreedToTerms(!agreedToTerms)}
+                style={styles.termsCheckboxRow}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      borderColor: agreedToTerms ? colors.primary : colors.border,
+                      backgroundColor: agreedToTerms ? colors.primary : 'transparent',
+                    },
+                  ]}
+                >
+                  {agreedToTerms && (
+                    <IconSymbol name="checkmark" size={14} color={colors.primaryForeground} />
+                  )}
+                </View>
+                <Text style={[styles.termsCheckboxLabel, { color: colors.text }]}>
+                  投稿規定に同意する
+                </Text>
+              </Pressable>
+              <View style={styles.termsContent}>
+                <Text style={[styles.termsText, { color: colors.mutedForeground }]}>
+                  • 料理と関係のない投稿は削除対象となります{'\n'}
+                  • 写真とメニューが一致しない場合は削除対象となります{'\n'}
+                  • 管理者が不適切と判断した投稿は削除される場合があります
+                </Text>
+              </View>
+            </View>
           </View>
         </ScrollView>
 
@@ -932,6 +977,37 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  // 投稿規定
+  termsSection: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  termsCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  termsCheckboxLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  termsContent: {
+    paddingLeft: Spacing.xl + 4,
+  },
+  termsText: {
+    fontSize: 12,
+    lineHeight: 20,
   },
 });
 

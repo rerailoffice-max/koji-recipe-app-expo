@@ -53,9 +53,6 @@ export function WeeklyBanner({ recipes, onRecipeClick, isLoading = false }: Week
       {/* ヘッダー */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>今週のおすすめレシピ</Text>
-        <Pressable>
-          <Text style={[styles.seeAll, { color: colors.primary }]}>すべて見る</Text>
-        </Pressable>
       </View>
 
       {/* コンテンツ */}
@@ -123,9 +120,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  seeAll: {
-    fontSize: 12,
   },
   scrollContent: {
     paddingHorizontal: Spacing.md,

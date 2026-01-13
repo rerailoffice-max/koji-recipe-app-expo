@@ -483,6 +483,12 @@ export default function HomeScreen() {
             tintColor={colors.primary}
           />
         }
+        // パフォーマンス最適化
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS !== 'web'}
+        updateCellsBatchingPeriod={50}
       />
     </View>
   );

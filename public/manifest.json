@@ -1,27 +1,51 @@
 {
-  "name": "GOCHISOKOJI",
+  "name": "GOCHISOKOJI - 麹レシピ",
   "short_name": "GOCHISOKOJI",
   "description": "麹レシピを、AIと。毎日の料理を麹で美味しく、健康に。",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F7F1E7",
   "theme_color": "#BFAB90",
   "lang": "ja",
+  "categories": ["food", "lifestyle", "health"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "AIでレシピを作る",
+      "short_name": "AIレシピ",
+      "description": "AIと一緒に麹レシピを作成",
+      "url": "/compose?source=shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }
-

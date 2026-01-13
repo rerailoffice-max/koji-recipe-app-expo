@@ -432,7 +432,7 @@ export default function HomeScreen() {
             <img
               src="/logo-gochisokoji.png"
               alt="GOCHISOKOJI"
-              style={{ height: 24, width: 'auto', maxWidth: 180 }}
+              style={{ height: 32, width: 200 }}
             />
           ) : (
             <Text style={styles.logoText}>GOCHISOKOJI</Text>

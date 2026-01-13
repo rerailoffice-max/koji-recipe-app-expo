@@ -199,6 +199,14 @@ export default function ComposeScreen() {
   const [introErrorText, setIntroErrorText] = React.useState<string | null>(null);
   const [introRetryUntilMs, setIntroRetryUntilMs] = React.useState<number | null>(null);
   
+  // 選択されたメニュー案の栄養情報（下書きに引き継ぐため）
+  const selectedMenuNutritionRef = React.useRef<{
+    timeMinutes?: number;
+    caloriesKcal?: number;
+    saltG?: number;
+    kojiType?: string;
+  } | null>(null);
+  
   // 下書き生成中フラグ
   const [isGeneratingDraft, setIsGeneratingDraft] = React.useState(false);
   
@@ -523,21 +531,38 @@ export default function ComposeScreen() {
         }
         
         // 完成状態にして、遷移データを保存
+        // メニュー案カードの栄養情報を優先（一貫性のため）
+        const savedNutrition = selectedMenuNutritionRef.current;
+        const finalCalories = savedNutrition?.caloriesKcal ?? recipe.calories;
+        const finalSaltG = savedNutrition?.saltG ?? recipe.salt_g;
+        const finalTime = savedNutrition?.timeMinutes ?? recipe.cooking_time_min;
+        const finalKojiType = savedNutrition?.kojiType || recipe.koji_type || '';
+        
+        // 麹タイプの正規化（「こうじ調味料」→「麹」形式に変換）
+        let normalizedKojiType = finalKojiType;
+        if (finalKojiType.includes('旨塩風こうじ') || finalKojiType.includes('旨塩風')) {
+          normalizedKojiType = 'たまねぎ麹';
+        } else if (finalKojiType.includes('中華風こうじ') || finalKojiType.includes('中華風')) {
+          normalizedKojiType = '中華麹';
+        } else if (finalKojiType.includes('コンソメ風こうじ') || finalKojiType.includes('コンソメ風')) {
+          normalizedKojiType = 'コンソメ麹';
+        }
+        
         pendingNavigationRef.current = {
           pathname: '/compose/edit',
           params: {
             title: recipe.title || '',
             description: recipe.description || '',
-            koji_type: recipe.koji_type || '',
+            koji_type: normalizedKojiType,
             difficulty: recipe.difficulty || 'かんたん',
             ingredients: JSON.stringify(recipe.ingredients || []),
             steps: JSON.stringify(recipe.steps || []),
             tips: recipe.tips || '',
             image_base64: imageBase64 || '',
-            // 栄養情報
-            calories: recipe.calories ? String(recipe.calories) : '',
-            salt_g: recipe.salt_g ? String(recipe.salt_g) : '',
-            cooking_time_min: recipe.cooking_time_min ? String(recipe.cooking_time_min) : '',
+            // 栄養情報（メニュー案カードの値を優先）
+            calories: finalCalories ? String(finalCalories) : '',
+            salt_g: finalSaltG ? String(finalSaltG) : '',
+            cooking_time_min: finalTime ? String(finalTime) : '',
             // タグ
             tags: JSON.stringify(recipe.tags || []),
           },
@@ -603,6 +628,7 @@ export default function ComposeScreen() {
       setIsGeneratingDraft(false);
       setIsDraftComplete(false);
       pendingNavigationRef.current = null;
+      selectedMenuNutritionRef.current = null;
       // 完全リセット：メニューキャッシュも破棄
       setPreGeneratedMenus(null);
     };
@@ -729,6 +755,14 @@ export default function ComposeScreen() {
   
   // メニュー例をタップして即レシピモードで送信
   const handleTapExample = React.useCallback((idea: MenuIdeaCard) => {
+    // 栄養情報を保持（下書きに引き継ぐため）
+    selectedMenuNutritionRef.current = {
+      timeMinutes: idea.timeMinutes,
+      caloriesKcal: idea.caloriesKcal,
+      saltG: idea.saltG,
+      kojiType: idea.kojiType,
+    };
+    
     const ingredientsText =
       idea.keyIngredients && idea.keyIngredients.length > 0
         ? `材料は ${idea.keyIngredients.join('、')} です。`

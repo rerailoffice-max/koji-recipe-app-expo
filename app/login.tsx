@@ -265,7 +265,15 @@ export default function LoginScreen() {
       {/* ロゴ・タイトル */}
       <View style={styles.header}>
         <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}>
-          <IconSymbol name="leaf" size={48} color="#ffffff" />
+          {Platform.OS === 'web' ? (
+            <img
+              src="/apple-touch-icon.png"
+              alt="GOCHISOKOJI"
+              style={{ width: 64, height: 64, borderRadius: 16 }}
+            />
+          ) : (
+            <IconSymbol name="leaf" size={48} color="#ffffff" />
+          )}
         </View>
         <Text style={[styles.title, { color: colors.text }]}>GOCHISOKOJI</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -331,6 +339,40 @@ export default function LoginScreen() {
 
         {isEmailLogin ? (
           <>
+            {/* 新規登録の場合はGoogleボタンも表示 */}
+            {isSignup && (
+              <>
+                <Pressable
+                  onPress={handleGoogleLogin}
+                  disabled={isLoading}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: pressed || isLoading ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <GoogleIcon />
+                      <Text style={styles.primaryButtonText}>Googleで新規登録</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                <View style={styles.dividerContainer}>
+                  <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.dividerText, { color: colors.mutedForeground, backgroundColor: colors.background }]}>
+                    または
+                  </Text>
+                  <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                </View>
+              </>
+            )}
+
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: colors.text }]}>メールアドレス</Text>
               <TextInput
@@ -496,7 +538,7 @@ export default function LoginScreen() {
       {/* フッター */}
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-          © 2024 GOCHISOKOJI. All rights reserved.
+          © 2026 GOCHISOKOJI. All rights reserved.
         </Text>
       </View>
     </View>

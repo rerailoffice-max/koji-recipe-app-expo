@@ -26,6 +26,10 @@ interface CardPostProps {
   isSaving?: boolean;
   onToggleSave?: (postId: string) => void;
   onClick?: () => void;
+  // 栄養情報
+  cookingTimeMin?: number | null;
+  calories?: number | null;
+  saltG?: number | null;
 }
 
 // 麹タイプの表示名変換
@@ -56,6 +60,9 @@ export function CardPost({
   isSaving = false,
   onToggleSave,
   onClick,
+  cookingTimeMin,
+  calories,
+  saltG,
 }: CardPostProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -102,6 +109,33 @@ export function CardPost({
           <View style={styles.tags}>
             <ChipTag type="koji" label={toKojiDisplayName(kojiType)} />
           </View>
+
+          {/* 栄養情報バッジ */}
+          {(cookingTimeMin || calories || saltG) && (
+            <View style={styles.nutritionBadges}>
+              {cookingTimeMin && (
+                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
+                    ⏱{cookingTimeMin}分
+                  </Text>
+                </View>
+              )}
+              {calories && (
+                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
+                    {calories}kcal
+                  </Text>
+                </View>
+              )}
+              {saltG && (
+                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
+                    🧂{saltG}g
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* スペーサー */}
           <View style={styles.spacer} />
@@ -196,6 +230,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.xs,
     marginTop: Spacing.xs,
+  },
+  nutritionBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  nutritionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  nutritionBadgeText: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   spacer: {
     flex: 1,

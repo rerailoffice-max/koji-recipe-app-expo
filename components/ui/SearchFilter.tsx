@@ -16,11 +16,23 @@ const KOJI_FILTERS: KojiFilter[] = [
   { id: '中華麹', label: '中華', icon: '🧄' },
 ];
 
+// タグフィルター
+const TAG_FILTERS = [
+  { id: '魚', emoji: '🐟' },
+  { id: '肉', emoji: '🍖' },
+  { id: '野菜', emoji: '🥬' },
+  { id: '時短', emoji: '⚡' },
+  { id: '主菜', emoji: '🍳' },
+  { id: 'スープ', emoji: '🍲' },
+];
+
 interface SearchFilterProps {
   query: string;
   onQueryChange: (query: string) => void;
   selectedKojis: Set<string>;
   onToggleKoji: (kojiId: string) => void;
+  selectedTags?: Set<string>;
+  onToggleTag?: (tagId: string) => void;
   onClearFilters?: () => void;
 }
 
@@ -29,6 +41,8 @@ export function SearchFilter({
   onQueryChange,
   selectedKojis,
   onToggleKoji,
+  selectedTags = new Set(),
+  onToggleTag,
   onClearFilters,
 }: SearchFilterProps) {
   const colorScheme = useColorScheme();
@@ -82,6 +96,38 @@ export function SearchFilter({
             );
           })}
         </View>
+
+        {/* タグフィルター */}
+        {onToggleTag && (
+          <View style={styles.tagFilters}>
+            {TAG_FILTERS.map((tag) => {
+              const isSelected = selectedTags.has(tag.id);
+              return (
+                <Pressable
+                  key={tag.id}
+                  onPress={() => onToggleTag(tag.id)}
+                  style={[
+                    styles.tagChip,
+                    {
+                      backgroundColor: isSelected ? `${colors.primary}20` : colors.surface,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={styles.tagIcon}>{tag.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.tagLabel,
+                      { color: isSelected ? colors.primary : colors.mutedForeground },
+                    ]}
+                  >
+                    {tag.id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* クリアボタン */}
         {selectedKojis.size > 0 && onClearFilters && (
@@ -144,6 +190,29 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 12,
+    fontWeight: '500',
+  },
+  tagFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.xs,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  tagIcon: {
+    fontSize: 12,
+  },
+  tagLabel: {
+    fontSize: 11,
     fontWeight: '500',
   },
   clearFilterContainer: {

@@ -17,9 +17,13 @@ export default function Root({ children }: PropsWithChildren) {
         />
 
         {/* PWA設定 */}
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="GOCHISOKOJI" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#BFAB90" />
         
         {/* ズーム無効化CSS */}
         <style dangerouslySetInnerHTML={{ __html: `

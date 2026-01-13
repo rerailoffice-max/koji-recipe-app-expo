@@ -1,6 +1,6 @@
 {
-  "name": "こうじレシピ",
-  "short_name": "こうじレシピ",
+  "name": "GOCHISOKOJI",
+  "short_name": "GOCHISOKOJI",
   "description": "麹レシピを、AIと。毎日の料理を麹で美味しく、健康に。",
   "start_url": "/",
   "scope": "/",

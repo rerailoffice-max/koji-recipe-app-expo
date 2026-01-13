@@ -47,6 +47,12 @@ interface FormData {
   ingredients: Ingredient[];
   steps: Step[];
   image_url: string | null;
+  // 栄養情報
+  salt_g: string;
+  calories: string;
+  cooking_time_min: string;
+  // タグ
+  tags: string[];
 }
 
 // 麹の種類
@@ -61,6 +67,22 @@ const DIFFICULTIES = [
   { value: 'かんたん', label: 'かんたん' },
   { value: 'ふつう', label: 'ふつう' },
   { value: 'むずかしい', label: 'むずかしい' },
+];
+
+// タグオプション
+const TAG_OPTIONS = [
+  { value: '魚', emoji: '🐟' },
+  { value: '肉', emoji: '🍖' },
+  { value: '卵', emoji: '🥚' },
+  { value: '野菜', emoji: '🥬' },
+  { value: '時短', emoji: '⚡' },
+  { value: '作り置き', emoji: '📦' },
+  { value: 'おつまみ', emoji: '🍺' },
+  { value: 'ダイエット', emoji: '🏃' },
+  { value: '主菜', emoji: '🍳' },
+  { value: '副菜', emoji: '🥒' },
+  { value: 'スープ', emoji: '🍲' },
+  { value: 'サラダ', emoji: '🥗' },
 ];
 
 // JSONを安全にパースするヘルパー
@@ -101,6 +123,10 @@ export default function RecipeEditScreen() {
     ingredients: [{ name: '', amount: '' }],
     steps: [{ order: 1, description: '' }],
     image_url: null,
+    salt_g: '',
+    calories: '',
+    cooking_time_min: '',
+    tags: [],
   });
 
   const [imageUri, setImageUri] = React.useState<string | null>(null);
@@ -153,6 +179,10 @@ export default function RecipeEditScreen() {
         ingredients: initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }],
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: params.image_url || null,
+        salt_g: '',
+        calories: '',
+        cooking_time_min: '',
+        tags: [],
       });
       
       // チャットから渡された画像を設定（Base64）
@@ -358,6 +388,11 @@ export default function RecipeEditScreen() {
         image_url: uploadedImageUrl || formData.image_url,
         is_public: false,
         is_ai_generated: false,
+        // 栄養情報
+        salt_g: cleanData.salt_g ? parseFloat(cleanData.salt_g) : null,
+        calories: cleanData.calories ? parseInt(cleanData.calories, 10) : null,
+        cooking_time_min: cleanData.cooking_time_min ? parseInt(cleanData.cooking_time_min, 10) : null,
+        tags: cleanData.tags.length > 0 ? cleanData.tags : null,
       };
 
       if (draftId) {
@@ -517,6 +552,11 @@ export default function RecipeEditScreen() {
         image_url: uploadedImageUrl || formData.image_url,
         is_public: true,
         is_ai_generated: false,
+        // 栄養情報
+        salt_g: cleanData.salt_g ? parseFloat(cleanData.salt_g) : null,
+        calories: cleanData.calories ? parseInt(cleanData.calories, 10) : null,
+        cooking_time_min: cleanData.cooking_time_min ? parseInt(cleanData.cooking_time_min, 10) : null,
+        tags: cleanData.tags.length > 0 ? cleanData.tags : null,
       };
 
       if (draftId) {
@@ -671,6 +711,94 @@ export default function RecipeEditScreen() {
               options={DIFFICULTIES}
               onChange={(value) => setFormData((prev) => ({ ...prev, difficulty: value }))}
             />
+
+            {/* 栄養情報・調理時間 */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>栄養情報（任意）</Text>
+              <View style={styles.nutritionRow}>
+                <View style={styles.nutritionField}>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>⏱ 調理時間</Text>
+                  <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TextInput
+                      value={formData.cooking_time_min}
+                      onChangeText={(text) => setFormData((prev) => ({ ...prev, cooking_time_min: text.replace(/[^0-9]/g, '') }))}
+                      placeholder="15"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                      style={[styles.nutritionInput, { color: colors.text }]}
+                    />
+                    <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>分</Text>
+                  </View>
+                </View>
+                <View style={styles.nutritionField}>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🔥 カロリー</Text>
+                  <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TextInput
+                      value={formData.calories}
+                      onChangeText={(text) => setFormData((prev) => ({ ...prev, calories: text.replace(/[^0-9]/g, '') }))}
+                      placeholder="350"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                      style={[styles.nutritionInput, { color: colors.text }]}
+                    />
+                    <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>kcal</Text>
+                  </View>
+                </View>
+                <View style={styles.nutritionField}>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🧂 塩分</Text>
+                  <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TextInput
+                      value={formData.salt_g}
+                      onChangeText={(text) => setFormData((prev) => ({ ...prev, salt_g: text.replace(/[^0-9.]/g, '') }))}
+                      placeholder="2.5"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="decimal-pad"
+                      style={[styles.nutritionInput, { color: colors.text }]}
+                    />
+                    <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>g</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* タグ選択 */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>タグ（任意）</Text>
+              <View style={styles.tagGrid}>
+                {TAG_OPTIONS.map((tag) => {
+                  const isSelected = formData.tags.includes(tag.value);
+                  return (
+                    <Pressable
+                      key={tag.value}
+                      onPress={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          tags: isSelected
+                            ? prev.tags.filter((t) => t !== tag.value)
+                            : [...prev.tags, tag.value],
+                        }));
+                      }}
+                      style={[
+                        styles.tagChip,
+                        {
+                          backgroundColor: isSelected ? colors.primary : colors.surface,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tagChipText,
+                          { color: isSelected ? '#fff' : colors.text },
+                        ]}
+                      >
+                        {tag.emoji} {tag.value}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
 
             {/* 材料 */}
             <View style={styles.fieldContainer}>
@@ -992,6 +1120,53 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     padding: Spacing.sm,
+  },
+  // 栄養情報スタイル
+  nutritionRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  nutritionField: {
+    flex: 1,
+    minWidth: 100,
+  },
+  nutritionLabel: {
+    fontSize: 12,
+    marginBottom: Spacing.xs,
+  },
+  nutritionInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    height: 44,
+  },
+  nutritionInput: {
+    flex: 1,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  nutritionUnit: {
+    fontSize: 14,
+    marginLeft: Spacing.xs,
+  },
+  // タグスタイル
+  tagGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  tagChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  tagChipText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   addButton: {
     flexDirection: 'row',

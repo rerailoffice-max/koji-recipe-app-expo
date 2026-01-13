@@ -30,6 +30,12 @@ interface Post {
   ingredients: Ingredient[] | null;
   view_count: number;
   created_at: string;
+  // 栄養情報
+  salt_g: number | null;
+  calories: number | null;
+  cooking_time_min: number | null;
+  // タグ
+  tags: string[] | null;
   user: {
     id: string;
     display_name: string | null;
@@ -70,6 +76,7 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = React.useState<'recent' | 'popular'>('recent');
   const [query, setQuery] = React.useState('');
   const [selectedKojis, setSelectedKojis] = React.useState<Set<string>>(new Set());
+  const [selectedTags, setSelectedTags] = React.useState<Set<string>>(new Set());
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -123,16 +130,36 @@ export default function HomeScreen() {
     });
   }, []);
 
+  // タグフィルタートグル
+  const toggleTag = React.useCallback((id: string) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
   // フィルタークリア
   const clearFilters = React.useCallback(() => {
     setSelectedKojis(new Set());
+    setSelectedTags(new Set());
   }, []);
 
   // 投稿をフィルタリング
   const filteredPosts = React.useMemo(() => {
     return posts.filter((p) => {
-      // 麹タイプフィルター
+      // 麹タイプフィルター（OR条件）
       if (selectedKojis.size > 0 && !selectedKojis.has(p.koji_type)) return false;
+      // タグフィルター（OR条件: 選択したタグのいずれかを含む）
+      if (selectedTags.size > 0) {
+        const postTags = p.tags || [];
+        const hasMatchingTag = Array.from(selectedTags).some((tag) => postTags.includes(tag));
+        if (!hasMatchingTag) return false;
+      }
       // テキスト検索
       const q = query.trim().toLowerCase();
       if (q) {
@@ -141,7 +168,7 @@ export default function HomeScreen() {
       }
       return true;
     });
-  }, [posts, query, selectedKojis]);
+  }, [posts, query, selectedKojis, selectedTags]);
 
   // 投稿を取得（Supabaseから直接）
   const fetchPosts = React.useCallback(async (refresh = false) => {
@@ -162,6 +189,10 @@ export default function HomeScreen() {
           ingredients,
           view_count,
           created_at,
+          salt_g,
+          calories,
+          cooking_time_min,
+          tags,
           user:users(id, display_name, avatar_url, email)
         `)
         .eq('is_public', true);
@@ -342,6 +373,9 @@ export default function HomeScreen() {
         isSaved={savedIds.has(item.id)}
         isSaving={savingIds.has(item.id)}
         onToggleSave={handleToggleSave}
+        cookingTimeMin={item.cooking_time_min}
+        calories={item.calories}
+        saltG={item.salt_g}
         onClick={() => {
           router.push(`/posts/${item.id}` as any);
         }}
@@ -371,6 +405,8 @@ export default function HomeScreen() {
           onQueryChange={setQuery}
           selectedKojis={selectedKojis}
           onToggleKoji={toggleKoji}
+          selectedTags={selectedTags}
+          onToggleTag={toggleTag}
           onClearFilters={clearFilters}
         />
 
@@ -384,7 +420,7 @@ export default function HomeScreen() {
         />
       </>
     ),
-    [query, selectedKojis, toggleKoji, clearFilters, weeklyRecipes, isLoadingWeekly]
+    [query, selectedKojis, toggleKoji, selectedTags, toggleTag, clearFilters, weeklyRecipes, isLoadingWeekly]
   );
 
   return (
@@ -438,6 +474,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
+  },
+  logoImage: {
+    width: 180,
+    height: 28,
   },
   logoText: {
     fontSize: 22,

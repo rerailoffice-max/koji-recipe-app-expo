@@ -260,17 +260,17 @@ export default function MyRecipesScreen() {
 
         {/* ログイン促進画面 */}
         <View style={styles.loginPromptFullScreen}>
-          <View style={[styles.loginPromptIcon, { backgroundColor: colors.surface }]}>
+          <View style={[styles.loginPromptIcon, { backgroundColor: 'transparent' }]}>
             {Platform.OS === 'web' ? (
               <img
-                src="/logo-gochisokoji.png"
+                src="/apple-touch-icon.png"
                 alt="GOCHISOKOJI"
-                style={{ width: 120, height: 40, objectFit: 'contain' }}
+                style={{ width: 88, height: 88, borderRadius: 20 }}
               />
             ) : (
               <Image
                 source={require('@/assets/images/icon.png')}
-                style={{ width: 64, height: 64, borderRadius: 32 }}
+                style={{ width: 88, height: 88, borderRadius: 20 }}
               />
             )}
           </View>

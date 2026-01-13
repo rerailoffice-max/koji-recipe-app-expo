@@ -9,17 +9,23 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { supabase, API_BASE_URL } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RecipeSection, type RecipeItem } from '@/components/ui';
+import { useToast } from '@/contexts/ToastContext';
 import type { User } from '@supabase/supabase-js';
+
+const APP_URL = 'https://www.gochisokoji.com';
+const KOJI_PURCHASE_URL = 'https://yutakanokoji.official.ec/items/77406518';
 
 type FilterTab = 'all' | 'saved' | 'mine' | 'drafts';
 
@@ -34,6 +40,7 @@ export default function MyRecipesScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [user, setUser] = React.useState<User | null>(null);
   const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | null>(null);
@@ -315,6 +322,29 @@ export default function MyRecipesScreen() {
 
           {/* 右アイコン */}
           <View style={styles.headerRight}>
+            {/* 麹を購入 */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => Linking.openURL(KOJI_PURCHASE_URL)}
+            >
+              <Text style={styles.headerIconEmoji}>🛒</Text>
+            </Pressable>
+            {/* アプリを共有 */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={async () => {
+                try {
+                  await Clipboard.setStringAsync(APP_URL);
+                  showToast({ message: 'URLをコピーしました', type: 'success' });
+                } catch (e) {
+                  console.error('Copy URL error:', e);
+                  showToast({ message: 'コピーに失敗しました', type: 'error' });
+                }
+              }}
+            >
+              <Text style={styles.headerIconEmoji}>📤</Text>
+            </Pressable>
+            {/* 設定 */}
             <Pressable
               style={styles.headerIcon}
               onPress={() => router.push('/settings' as any)}
@@ -493,6 +523,9 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerIconEmoji: {
+    fontSize: 20,
   },
   scrollView: {
     flex: 1,

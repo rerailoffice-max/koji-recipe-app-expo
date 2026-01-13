@@ -730,7 +730,7 @@ export default function RecipeEditScreen() {
 
             {/* 栄養情報・調理時間（2列レイアウト） */}
             <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>栄養情報（任意）</Text>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>栄養情報（目安・任意）</Text>
               {/* 1行目: 調理時間 / カロリー */}
               <View style={styles.nutritionRow}>
                 <View style={styles.nutritionFieldHalf}>

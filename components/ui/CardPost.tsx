@@ -123,7 +123,7 @@ export function CardPost({
               {calories && (
                 <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
                   <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
-                    {calories}kcal
+                    約{calories}kcal
                   </Text>
                 </View>
               )}

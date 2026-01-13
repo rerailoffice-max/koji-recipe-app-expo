@@ -1026,12 +1026,12 @@ export default function ComposeScreen() {
                                         )}
                                         {typeof menu.caloriesKcal === 'number' && (
                                           <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
-                                            🔥{menu.caloriesKcal}kcal
+                                            🔥約{menu.caloriesKcal}kcal
                                           </Text>
                                         )}
                                         {typeof menu.saltG === 'number' && (
                                           <Text style={[styles.exampleMeta, { color: colors.mutedForeground }]}>
-                                            🧂{menu.saltG}g
+                                            🧂約{menu.saltG}g
                                           </Text>
                                         )}
                                       </View>

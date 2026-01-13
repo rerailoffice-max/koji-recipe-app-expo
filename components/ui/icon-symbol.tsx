@@ -33,7 +33,7 @@ const MAPPING: Record<string, MaterialIconName> = {
   'trash': 'delete',
   'pencil': 'edit',
   'square.and.pencil': 'edit-note',
-  'square.and.arrow.up': 'share',
+  'square.and.arrow.up': 'ios-share',
   
   // ショッピング
   'cart': 'shopping-cart',

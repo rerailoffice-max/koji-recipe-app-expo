@@ -7,6 +7,7 @@ import {
     type Ingredient,
     type WeeklyRecipe,
 } from '@/components/ui';
+import type { TagItem } from '@/components/ui/SearchFilter';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
@@ -85,6 +86,7 @@ export default function HomeScreen() {
   const [savedIds, setSavedIds] = React.useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
+  const [tagList, setTagList] = React.useState<TagItem[]>([]);
   
   // ユーザーと保存済みIDを取得
   React.useEffect(() => {
@@ -115,6 +117,24 @@ export default function HomeScreen() {
     });
     
     return () => subscription.unsubscribe();
+  }, []);
+
+  // タグリストを取得
+  React.useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/tags`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tags && Array.isArray(data.tags)) {
+            setTagList(data.tags);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch tags:', error);
+      }
+    };
+    fetchTags();
   }, []);
 
   // 麹フィルタートグル
@@ -408,6 +428,7 @@ export default function HomeScreen() {
           selectedTags={selectedTags}
           onToggleTag={toggleTag}
           onClearFilters={clearFilters}
+          tags={tagList.length > 0 ? tagList : undefined}
         />
 
         {/* 今週のおすすめ */}
@@ -420,7 +441,7 @@ export default function HomeScreen() {
         />
       </>
     ),
-    [query, selectedKojis, toggleKoji, selectedTags, toggleTag, clearFilters, weeklyRecipes, isLoadingWeekly]
+    [query, selectedKojis, toggleKoji, selectedTags, toggleTag, clearFilters, weeklyRecipes, isLoadingWeekly, tagList]
   );
 
   return (

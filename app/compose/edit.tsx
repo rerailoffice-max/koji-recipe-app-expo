@@ -71,8 +71,8 @@ const DIFFICULTIES = [
   { value: 'むずかしい', label: 'むずかしい' },
 ];
 
-// タグオプション
-const TAG_OPTIONS = [
+// タグオプション（フォールバック用）
+const DEFAULT_TAG_OPTIONS = [
   { value: '魚', emoji: '🐟' },
   { value: '肉', emoji: '🍖' },
   { value: '卵', emoji: '🥚' },
@@ -86,6 +86,12 @@ const TAG_OPTIONS = [
   { value: 'スープ', emoji: '🍲' },
   { value: 'サラダ', emoji: '🥗' },
 ];
+
+// タグ型定義
+interface TagOption {
+  value: string;
+  emoji: string;
+}
 
 // JSONを安全にパースするヘルパー
 function safeJsonParse<T>(str: string | undefined, fallback: T): T {
@@ -146,6 +152,28 @@ export default function RecipeEditScreen() {
   const [showTermsModal, setShowTermsModal] = React.useState(false);
   const modalScaleAnim = React.useRef(new Animated.Value(0.9)).current;
   const modalOpacityAnim = React.useRef(new Animated.Value(0)).current;
+  const [tagOptions, setTagOptions] = React.useState<TagOption[]>(DEFAULT_TAG_OPTIONS);
+
+  // タグリストを取得
+  React.useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/tags`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tags && Array.isArray(data.tags)) {
+            setTagOptions(data.tags.map((t: any) => ({
+              value: t.name,
+              emoji: t.emoji || '',
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch tags:', error);
+      }
+    };
+    fetchTags();
+  }, []);
 
   // パラメータからフォームデータを設定（params変更時に実行）
   React.useEffect(() => {
@@ -785,7 +813,7 @@ export default function RecipeEditScreen() {
             <View style={styles.fieldContainer}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>タグ（任意）</Text>
               <View style={styles.tagGrid}>
-                {TAG_OPTIONS.map((tag) => {
+                {tagOptions.map((tag) => {
                   const isSelected = formData.tags.includes(tag.value);
                   return (
                     <Pressable

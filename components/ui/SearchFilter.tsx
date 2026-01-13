@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconSymbol } from './icon-symbol';
 
@@ -16,14 +16,23 @@ const KOJI_FILTERS: KojiFilter[] = [
   { id: '中華麹', label: '中華', icon: '🧄' },
 ];
 
-// タグフィルター
-const TAG_FILTERS = [
-  { id: '魚', emoji: '🐟' },
-  { id: '肉', emoji: '🍖' },
-  { id: '野菜', emoji: '🥬' },
-  { id: '時短', emoji: '⚡' },
-  { id: '主菜', emoji: '🍳' },
-  { id: 'スープ', emoji: '🍲' },
+// タグの型定義
+export interface TagItem {
+  id: string;
+  name: string;
+  category?: string;
+  emoji?: string;
+  display_order?: number;
+}
+
+// デフォルトのタグ（APIから取得できない場合のフォールバック）
+const DEFAULT_TAGS: TagItem[] = [
+  { id: '魚', name: '魚', emoji: '🐟', category: 'ingredient' },
+  { id: '肉', name: '肉', emoji: '🍖', category: 'ingredient' },
+  { id: '野菜', name: '野菜', emoji: '🥬', category: 'ingredient' },
+  { id: '時短', name: '時短', emoji: '⚡', category: 'style' },
+  { id: '主菜', name: '主菜', emoji: '🍳', category: 'dish_type' },
+  { id: 'スープ', name: 'スープ', emoji: '🍲', category: 'dish_type' },
 ];
 
 interface SearchFilterProps {
@@ -34,6 +43,10 @@ interface SearchFilterProps {
   selectedTags?: Set<string>;
   onToggleTag?: (tagId: string) => void;
   onClearFilters?: () => void;
+  // 動的タグリスト（指定しない場合はDEFAULT_TAGSを使用）
+  tags?: TagItem[];
+  // 初期表示するタグ数（デフォルト6）
+  initialTagCount?: number;
 }
 
 export function SearchFilter({
@@ -44,9 +57,22 @@ export function SearchFilter({
   selectedTags = new Set(),
   onToggleTag,
   onClearFilters,
+  tags = DEFAULT_TAGS,
+  initialTagCount = 6,
 }: SearchFilterProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  
+  // タグ展開状態
+  const [isTagsExpanded, setIsTagsExpanded] = React.useState(false);
+  
+  // 表示するタグ
+  const displayTags = tags || DEFAULT_TAGS;
+  const visibleTags = isTagsExpanded ? displayTags : displayTags.slice(0, initialTagCount);
+  const hasMoreTags = displayTags.length > initialTagCount;
+  
+  // クリアボタン表示条件
+  const hasActiveFilters = selectedKojis.size > 0 || selectedTags.size > 0;
 
   return (
     <View style={styles.container}>
@@ -98,42 +124,58 @@ export function SearchFilter({
         </View>
 
         {/* タグフィルター */}
-        {onToggleTag && (
-          <View style={styles.tagFilters}>
-            {TAG_FILTERS.map((tag) => {
-              const isSelected = selectedTags.has(tag.id);
-              return (
-                <Pressable
-                  key={tag.id}
-                  onPress={() => onToggleTag(tag.id)}
-                  style={[
-                    styles.tagChip,
-                    {
-                      backgroundColor: isSelected ? `${colors.primary}20` : colors.surface,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={styles.tagIcon}>{tag.emoji}</Text>
-                  <Text
+        {onToggleTag && displayTags.length > 0 && (
+          <View style={styles.tagSection}>
+            <View style={styles.tagFilters}>
+              {visibleTags.map((tag) => {
+                const isSelected = selectedTags.has(tag.name);
+                return (
+                  <Pressable
+                    key={tag.id || tag.name}
+                    onPress={() => onToggleTag(tag.name)}
                     style={[
-                      styles.tagLabel,
-                      { color: isSelected ? colors.primary : colors.mutedForeground },
+                      styles.tagChip,
+                      {
+                        backgroundColor: isSelected ? `${colors.primary}20` : colors.surface,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
                     ]}
                   >
-                    {tag.id}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    {tag.emoji && <Text style={styles.tagIcon}>{tag.emoji}</Text>}
+                    <Text
+                      style={[
+                        styles.tagLabel,
+                        { color: isSelected ? colors.primary : colors.mutedForeground },
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            
+            {/* もっと見る/閉じるボタン */}
+            {hasMoreTags && (
+              <Pressable 
+                onPress={() => setIsTagsExpanded(!isTagsExpanded)}
+                style={styles.expandButton}
+              >
+                <Text style={[styles.expandText, { color: colors.primary }]}>
+                  {isTagsExpanded ? '閉じる ▲' : `もっと見る (${displayTags.length - initialTagCount}件) ▼`}
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
 
         {/* クリアボタン */}
-        {selectedKojis.size > 0 && onClearFilters && (
+        {hasActiveFilters && onClearFilters && (
           <View style={styles.clearFilterContainer}>
             <Pressable onPress={onClearFilters}>
-              <Text style={[styles.clearFilterText, { color: colors.mutedForeground }]}>クリア</Text>
+              <Text style={[styles.clearFilterText, { color: colors.mutedForeground }]}>
+                フィルターをクリア
+              </Text>
             </Pressable>
           </View>
         )}
@@ -192,12 +234,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  tagSection: {
+    marginTop: Spacing.xs,
+  },
   tagFilters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 6,
-    marginTop: Spacing.xs,
   },
   tagChip: {
     flexDirection: 'row',
@@ -215,13 +259,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  expandButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  expandText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   clearFilterContainer: {
     alignItems: 'center',
+    marginTop: Spacing.xs,
   },
   clearFilterText: {
     fontSize: 12,
   },
 });
-
-
-

@@ -26,7 +26,7 @@ import { useToast } from '@/contexts/ToastContext';
 import type { User } from '@supabase/supabase-js';
 
 const APP_URL = 'https://www.gochisokoji.com';
-const KOJI_PURCHASE_URL = 'https://base.kojiyaboutique.com'; // こうじ購入ページURL（仮）
+const KOJI_PURCHASE_URL = 'https://yutakanokoji.official.ec/items/77406518';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
@@ -874,7 +874,7 @@ export default function SettingsScreen() {
               },
             ]}
           >
-            <IconSymbol name="cart" size={18} color={colors.primary} />
+            <Text style={styles.buttonEmoji}>🛒</Text>
             <Text style={[styles.actionButtonText, { color: colors.text }]}>
               麹を購入する
             </Text>
@@ -899,7 +899,7 @@ export default function SettingsScreen() {
               },
             ]}
           >
-            <IconSymbol name="square.and.arrow.up" size={18} color={colors.primary} />
+            <Text style={styles.buttonEmoji}>📤</Text>
             <Text style={[styles.actionButtonText, { color: colors.text }]}>
               アプリを共有する
             </Text>
@@ -1232,5 +1232,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     paddingHorizontal: Spacing.md,
+  },
+  buttonEmoji: {
+    fontSize: 18,
   },
 });

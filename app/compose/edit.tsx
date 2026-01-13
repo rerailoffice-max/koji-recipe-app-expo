@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -105,7 +107,9 @@ export default function RecipeEditScreen() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSavingDraft, setIsSavingDraft] = React.useState(false);
   const [draftId, setDraftId] = React.useState<string | null>(null);
-  const [agreedToTerms, setAgreedToTerms] = React.useState(false);
+  const [showTermsModal, setShowTermsModal] = React.useState(false);
+  const modalScaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  const modalOpacityAnim = React.useRef(new Animated.Value(0)).current;
 
   // パラメータからフォームデータを設定（params変更時に実行）
   React.useEffect(() => {
@@ -385,8 +389,44 @@ export default function RecipeEditScreen() {
     }
   };
 
-  // 投稿
-  const handleSubmit = async () => {
+  // 投稿規定モーダルを開く
+  const openTermsModal = () => {
+    setShowTermsModal(true);
+    Animated.parallel([
+      Animated.spring(modalScaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacityAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // 投稿規定モーダルを閉じる
+  const closeTermsModal = () => {
+    Animated.parallel([
+      Animated.timing(modalScaleAnim, {
+        toValue: 0.9,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacityAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowTermsModal(false);
+    });
+  };
+
+  // 投稿ボタン押下時（まずバリデーション→モーダル表示）
+  const handleSubmitPress = () => {
     if (!formData.title.trim()) {
       showToast({ message: 'タイトルを入力してください', type: 'error' });
       return;
@@ -398,12 +438,13 @@ export default function RecipeEditScreen() {
       return;
     }
 
-    // 投稿規定同意チェック
-    if (!agreedToTerms) {
-      showToast({ message: '投稿規定に同意してください', type: 'error' });
-      return;
-    }
+    // バリデーション通過後、投稿規定モーダルを表示
+    openTermsModal();
+  };
 
+  // 投稿実行（モーダルで同意後に実行）
+  const handleSubmit = async () => {
+    closeTermsModal();
     setIsSubmitting(true);
 
     try {
@@ -713,38 +754,6 @@ export default function RecipeEditScreen() {
                 <Text style={[styles.addButtonText, { color: colors.primary }]}>手順を追加</Text>
               </Pressable>
             </View>
-
-            {/* 投稿規定 */}
-            <View style={[styles.termsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Pressable
-                onPress={() => setAgreedToTerms(!agreedToTerms)}
-                style={styles.termsCheckboxRow}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      borderColor: agreedToTerms ? colors.primary : colors.border,
-                      backgroundColor: agreedToTerms ? colors.primary : 'transparent',
-                    },
-                  ]}
-                >
-                  {agreedToTerms && (
-                    <IconSymbol name="checkmark" size={14} color={colors.primaryForeground} />
-                  )}
-                </View>
-                <Text style={[styles.termsCheckboxLabel, { color: colors.text }]}>
-                  投稿規定に同意する
-                </Text>
-              </Pressable>
-              <View style={styles.termsContent}>
-                <Text style={[styles.termsText, { color: colors.mutedForeground }]}>
-                  • 料理と関係のない投稿は削除対象となります{'\n'}
-                  • 写真とメニューが一致しない場合は削除対象となります{'\n'}
-                  • 管理者が不適切と判断した投稿は削除される場合があります
-                </Text>
-              </View>
-            </View>
           </View>
         </ScrollView>
 
@@ -778,7 +787,7 @@ export default function RecipeEditScreen() {
             )}
           </Pressable>
           <Pressable
-            onPress={handleSubmit}
+            onPress={handleSubmitPress}
             disabled={isSubmitting || isSavingDraft}
             style={[
               styles.actionButton,
@@ -801,6 +810,74 @@ export default function RecipeEditScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* 投稿規定モーダル */}
+      <Modal
+        visible={showTermsModal}
+        transparent
+        animationType="none"
+        onRequestClose={closeTermsModal}
+      >
+        <Pressable style={styles.modalOverlay} onPress={closeTermsModal}>
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: colors.background,
+                transform: [{ scale: modalScaleAnim }],
+                opacity: modalOpacityAnim,
+              },
+            ]}
+          >
+            <Pressable onPress={() => {}}>
+              {/* タイトル */}
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                投稿前のおねがい 🍳
+              </Text>
+
+              {/* 説明 */}
+              <Text style={[styles.modalDescription, { color: colors.mutedForeground }]}>
+                みんなが楽しめるレシピコミュニティを{'\n'}一緒につくっていきましょう！
+              </Text>
+
+              {/* 注意事項 */}
+              <View style={[styles.modalNotice, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }]}>
+                <Text style={[styles.modalNoticeText, { color: colors.text }]}>
+                  以下の場合、投稿が削除される{'\n'}可能性がありますのでご了承ください
+                </Text>
+                <Text style={[styles.modalNoticeList, { color: colors.mutedForeground }]}>
+                  • お料理と関係のない内容の投稿{'\n'}
+                  • 写真とレシピ内容が一致しない投稿
+                </Text>
+              </View>
+
+              <Text style={[styles.modalThanks, { color: colors.mutedForeground }]}>
+                ご協力ありがとうございます 🙏
+              </Text>
+
+              {/* ボタン */}
+              <View style={styles.modalButtons}>
+                <Pressable
+                  onPress={closeTermsModal}
+                  style={[styles.modalButton, styles.modalCancelButton, { borderColor: colors.border }]}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.mutedForeground }]}>
+                    キャンセル
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSubmit}
+                  style={[styles.modalButton, styles.modalSubmitButton, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.primaryForeground }]}>
+                    同意して投稿
+                  </Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -978,36 +1055,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // 投稿規定
-  termsSection: {
+  // 投稿規定モーダル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  modalNotice: {
+    width: '100%',
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     padding: Spacing.md,
-    gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  termsCheckboxRow: {
+  modalNoticeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+    lineHeight: 20,
+  },
+  modalNoticeList: {
+    fontSize: 12,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  modalThanks: {
+    fontSize: 13,
+    marginBottom: Spacing.lg,
+  },
+  modalButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.sm,
+    width: '100%',
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 2,
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  termsCheckboxLabel: {
+  modalCancelButton: {
+    borderWidth: 1,
+  },
+  modalSubmitButton: {},
+  modalButtonText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  termsContent: {
-    paddingLeft: Spacing.xl + 4,
-  },
-  termsText: {
-    fontSize: 12,
-    lineHeight: 20,
   },
 });
 

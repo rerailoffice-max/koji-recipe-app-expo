@@ -45,6 +45,7 @@ interface Post {
   image_url: string | null;
   koji_type: string;
   difficulty: string | null;
+  servings?: number | null;
   ingredients: Ingredient[] | null;
   steps: Step[] | null;
   view_count: number;
@@ -202,6 +203,8 @@ export default function PostDetailScreen() {
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
   const ingredients = post?.ingredients ?? [];
   const steps = post?.steps ?? [];
+  const servings =
+    typeof post?.servings === 'number' && Number.isFinite(post.servings) ? post.servings : 2;
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   // 投稿削除
@@ -324,6 +327,7 @@ export default function PostDetailScreen() {
                         ingredients: JSON.stringify(post.ingredients || []),
                         steps: JSON.stringify(post.steps || []),
                         image_url: post.image_url || '',
+                        servings: String(servings),
                       },
                     })
                   }
@@ -438,7 +442,7 @@ export default function PostDetailScreen() {
           {/* 材料 */}
           {ingredients.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>材料</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>材料（{servings}人分）</Text>
               {ingredients.map((ingredient, index) => (
                 <View
                   key={index}

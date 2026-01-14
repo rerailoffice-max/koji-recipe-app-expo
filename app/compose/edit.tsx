@@ -44,6 +44,7 @@ interface FormData {
   description: string;
   koji_type: string;
   difficulty: string;
+  servings: number;
   ingredients: Ingredient[];
   steps: Step[];
   image_url: string | null;
@@ -93,6 +94,107 @@ interface TagOption {
   emoji: string;
 }
 
+// =========================
+// 分量スケール（簡易）
+// =========================
+
+function normalizeDigits(input: string): string {
+  return input
+    .replace(/[０-９]/g, (c) => String('０１２３４５６７８９'.indexOf(c)))
+    .replace(/[．。]/g, '.')
+    .replace(/[／]/g, '/')
+    .replace(/[〜～]/g, '〜')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function parseNumberToken(token: string): number | null {
+  const t = normalizeDigits(token);
+  if (!t) return null;
+  const frac = t.match(/^(\d+)(?:\/(\d+))$/);
+  if (frac) {
+    const a = Number(frac[1]);
+    const b = Number(frac[2]);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return null;
+    return a / b;
+  }
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatNumber(n: number, maxDecimals: number): string {
+  const rounded = Number(n.toFixed(maxDecimals));
+  // -0 対策
+  const safe = Object.is(rounded, -0) ? 0 : rounded;
+  return Number.isInteger(safe) ? String(safe) : String(safe);
+}
+
+function formatAsQuarterFraction(n: number): string {
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const q = Math.round(abs * 4) / 4;
+  const intPart = Math.floor(q);
+  const frac = q - intPart;
+  const fracMap: Record<number, string> = {
+    0.25: '1/4',
+    0.5: '1/2',
+    0.75: '3/4',
+  };
+  const fracStr = fracMap[Number(frac.toFixed(2))];
+  if (!fracStr) return `${sign}${formatNumber(abs, 2)}`;
+  if (intPart === 0) return `${sign}${fracStr}`;
+  return `${sign}${intPart}と${fracStr}`;
+}
+
+function scaleIngredientAmount(amountRaw: string, ratio: number): string {
+  if (!amountRaw?.trim()) return amountRaw;
+  if (!Number.isFinite(ratio) || ratio === 1) return amountRaw;
+
+  const raw = amountRaw.trim();
+  const s = normalizeDigits(raw);
+  // 数字が無いものは変換しない（適量/少々など）
+  if (!/[0-9]/.test(s)) return amountRaw;
+
+  // レンジ（例: 1〜2個 / 1-2）
+  const range = s.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(?:〜|-)(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  if (range) {
+    const a = parseNumberToken(range[1]);
+    const b = parseNumberToken(range[2]);
+    const tail = range[3] ?? '';
+    if (a == null || b == null) return amountRaw;
+    const na = a * ratio;
+    const nb = b * ratio;
+    // 単位推定：末尾にg/ml/ccがあれば小数1桁、それ以外は小数1桁
+    const isMass = /^(g|kg|mg|ml|cc|l)/i.test(tail) || /(g|kg|mg|ml|cc|l)$/i.test(tail);
+    const fmt = (x: number) => formatNumber(x, isMass ? 1 : 1);
+    return `${fmt(na)}〜${fmt(nb)}${tail}`;
+  }
+
+  // 小さじ/大さじ（例: 小さじ1/2）
+  const spoon = s.match(/^(小さじ|大さじ)(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  if (spoon) {
+    const head = spoon[1];
+    const n = parseNumberToken(spoon[2]);
+    const tail = spoon[3] ?? '';
+    if (n == null) return amountRaw;
+    const scaled = n * ratio;
+    // 0.25刻みに寄せて分数表示
+    return `${head}${formatAsQuarterFraction(scaled)}${tail}`;
+  }
+
+  // 先頭数値＋残り（例: 100g / 1/2個 / 2本）
+  const m = s.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  if (!m) return amountRaw;
+  const n = parseNumberToken(m[1]);
+  const tail = m[2] ?? '';
+  if (n == null) return amountRaw;
+  const scaled = n * ratio;
+
+  const isMass = /^(g|kg|mg|ml|cc|l)/i.test(tail) || /(g|kg|mg|ml|cc|l)$/i.test(tail);
+  const maxDecimals = isMass ? 1 : 1;
+  return `${formatNumber(scaled, maxDecimals)}${tail}`;
+}
+
 // JSONを安全にパースするヘルパー
 function safeJsonParse<T>(str: string | undefined, fallback: T): T {
   if (!str) return fallback;
@@ -127,6 +229,8 @@ export default function RecipeEditScreen() {
     // タグ・コツ
     tags?: string;
     tips?: string;
+    // 何人分
+    servings?: string;
   }>();
 
   // フォームの初期値を設定
@@ -135,6 +239,7 @@ export default function RecipeEditScreen() {
     description: '',
     koji_type: '中華麹',
     difficulty: 'かんたん',
+    servings: 2,
     ingredients: [{ name: '', amount: '' }],
     steps: [{ order: 1, description: '' }],
     image_url: null,
@@ -217,6 +322,11 @@ export default function RecipeEditScreen() {
         description: params.description || '',
         koji_type: params.koji_type || '中華麹',
         difficulty: params.difficulty || 'かんたん',
+        servings: (() => {
+          const n = params.servings ? Number(params.servings) : 2;
+          if (!Number.isFinite(n)) return 2;
+          return Math.min(8, Math.max(1, Math.round(n)));
+        })(),
         ingredients: initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }],
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: params.image_url || null,
@@ -247,7 +357,7 @@ export default function RecipeEditScreen() {
     if (draftIdParam) {
       setDraftId(draftIdParam);
     }
-  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url, params.calories, params.salt_g, params.cooking_time_min, params.tags, params.tips]);
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url, params.calories, params.salt_g, params.cooking_time_min, params.tags, params.tips, params.servings]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 
@@ -316,6 +426,20 @@ export default function RecipeEditScreen() {
     }));
   };
 
+  // 何人分（1〜8）
+  const changeServings = (next: number) => {
+    const clamped = Math.min(8, Math.max(1, Math.round(next)));
+    setFormData((prev) => {
+      if (prev.servings === clamped) return prev;
+      const ratio = clamped / (prev.servings || 1);
+      const nextIngredients = prev.ingredients.map((ing) => ({
+        ...ing,
+        amount: scaleIngredientAmount(ing.amount, ratio),
+      }));
+      return { ...prev, servings: clamped, ingredients: nextIngredients };
+    });
+  };
+
   // 手順の追加
   const addStep = () => {
     setFormData((prev) => ({
@@ -355,6 +479,7 @@ export default function RecipeEditScreen() {
 
     return {
       ...formData,
+      servings: Math.min(8, Math.max(1, Math.round(formData.servings || 2))),
       ingredients: validIngredients,
       steps: validSteps,
     };
@@ -427,6 +552,7 @@ export default function RecipeEditScreen() {
         description: cleanData.description,
         koji_type: cleanData.koji_type,
         difficulty: cleanData.difficulty,
+        servings: cleanData.servings,
         ingredients: cleanData.ingredients,
         steps: cleanData.steps,
         image_url: uploadedImageUrl || formData.image_url,
@@ -591,6 +717,7 @@ export default function RecipeEditScreen() {
         description: cleanData.description,
         koji_type: cleanData.koji_type,
         difficulty: cleanData.difficulty,
+        servings: cleanData.servings,
         ingredients: cleanData.ingredients,
         steps: cleanData.steps,
         image_url: uploadedImageUrl || formData.image_url,
@@ -851,6 +978,35 @@ export default function RecipeEditScreen() {
             {/* 材料 */}
             <View style={styles.fieldContainer}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>材料</Text>
+              <View style={styles.servingsRow}>
+                <Text style={[styles.servingsLabel, { color: colors.mutedForeground }]}>何人分</Text>
+                <View style={[styles.servingsStepper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Pressable
+                    onPress={() => changeServings(formData.servings - 1)}
+                    disabled={formData.servings <= 1}
+                    style={({ pressed }) => [
+                      styles.servingsButton,
+                      { opacity: pressed || formData.servings <= 1 ? 0.5 : 1 },
+                    ]}
+                  >
+                    <Text style={[styles.servingsButtonText, { color: colors.text }]}>−</Text>
+                  </Pressable>
+                  <Text style={[styles.servingsValue, { color: colors.text }]}>{formData.servings}人分</Text>
+                  <Pressable
+                    onPress={() => changeServings(formData.servings + 1)}
+                    disabled={formData.servings >= 8}
+                    style={({ pressed }) => [
+                      styles.servingsButton,
+                      { opacity: pressed || formData.servings >= 8 ? 0.5 : 1 },
+                    ]}
+                  >
+                    <Text style={[styles.servingsButtonText, { color: colors.text }]}>＋</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <Text style={[styles.servingsHint, { color: colors.mutedForeground }]}>
+                一部の分量は自動換算できない場合があります
+              </Text>
               {formData.ingredients.map((ingredient, index) => (
                 <View key={index} style={styles.ingredientRow}>
                   <View
@@ -1159,6 +1315,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
+  servingsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  servingsStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  servingsButton: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  servingsButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  servingsValue: {
+    paddingHorizontal: Spacing.md,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  servingsHint: {
+    fontSize: 12,
+    marginBottom: Spacing.sm,
   },
   ingredientInputs: {
     flex: 1,

@@ -567,6 +567,7 @@ export default function ComposeScreen() {
             steps: JSON.stringify(recipe.steps || []),
             tips: recipe.tips || '',
             image_base64: imageBase64 || '',
+            servings: '2',
             // 栄養情報（メニュー案カードの値を優先）
             calories: finalCalories ? String(finalCalories) : '',
             salt_g: finalSaltG ? String(finalSaltG) : '',
@@ -746,6 +747,7 @@ export default function ComposeScreen() {
           difficulty: data.difficulty || 'かんたん',
           ingredients: JSON.stringify(data.ingredients || []),
           steps: JSON.stringify(data.steps || []),
+          servings: String((data as any).servings ?? 2),
         },
       });
     } catch (e) {

@@ -8,12 +8,14 @@ import {
   Platform,
   Linking,
   TextInput,
+  Modal,
+  Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase, API_BASE_URL, SUPABASE_URL } from '@/lib/supabase';
+import { supabase, API_BASE_URL, SUPABASE_URL, getPendingRecipe, clearPendingRecipe, type PendingRecipe } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -26,6 +28,10 @@ export default function LoginScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
+  // URLパラメータから保留レシピフラグを取得
+  const hasPendingParam = params?.pending === '1';
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
@@ -35,6 +41,11 @@ export default function LoginScreen() {
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [errorText, setErrorText] = React.useState('');
+  
+  // 保留レシピ関連の状態
+  const [pendingRecipe, setPendingRecipe] = React.useState<PendingRecipe | null>(null);
+  const [showPendingRecipeModal, setShowPendingRecipeModal] = React.useState(false);
+  const [isSavingRecipe, setIsSavingRecipe] = React.useState(false);
 
   // Expo用のリダイレクトURL
   const redirectUrl = AuthSession.makeRedirectUri({
@@ -48,6 +59,16 @@ export default function LoginScreen() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
+          // pending=1パラメータがある場合は保留レシピをチェック
+          if (hasPendingParam) {
+            const pending = await getPendingRecipe();
+            if (pending) {
+              setPendingRecipe(pending);
+              setShowPendingRecipeModal(true);
+              setIsCheckingSession(false);
+              return;
+            }
+          }
           router.replace('/');
         }
       } catch (e) {
@@ -60,9 +81,16 @@ export default function LoginScreen() {
     checkSession();
 
     // 認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        router.replace('/');
+        // ログイン成功時、保留レシピをチェック
+        const pending = await getPendingRecipe();
+        if (pending) {
+          setPendingRecipe(pending);
+          setShowPendingRecipeModal(true);
+        } else {
+          router.replace('/');
+        }
       }
     });
 
@@ -145,6 +173,101 @@ export default function LoginScreen() {
 
   // ゲストとして続行
   const handleGuestContinue = () => {
+    router.replace('/(tabs)');
+  };
+  
+  // 保留レシピを下書きに保存
+  const handleSavePendingRecipe = async () => {
+    if (!pendingRecipe || isSavingRecipe) return;
+    
+    setIsSavingRecipe(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setErrorText('ユーザー情報の取得に失敗しました');
+        return;
+      }
+      
+      // 下書きとしてDBに保存
+      const { error } = await supabase.from('posts').insert({
+        user_id: user.id,
+        title: pendingRecipe.title,
+        description: pendingRecipe.description,
+        koji_type: pendingRecipe.koji_type,
+        difficulty: pendingRecipe.difficulty,
+        ingredients: JSON.parse(pendingRecipe.ingredients || '[]'),
+        steps: JSON.parse(pendingRecipe.steps || '[]'),
+        tips: pendingRecipe.tips || '',
+        calories: pendingRecipe.calories ? parseInt(pendingRecipe.calories, 10) : null,
+        salt_g: pendingRecipe.salt_g ? parseFloat(pendingRecipe.salt_g) : null,
+        cooking_time_min: pendingRecipe.cooking_time_min ? parseInt(pendingRecipe.cooking_time_min, 10) : null,
+        tags: JSON.parse(pendingRecipe.tags || '[]'),
+        is_public: false, // 下書き
+      });
+      
+      if (error) {
+        console.error('Failed to save pending recipe:', error);
+        setErrorText('下書きの保存に失敗しました');
+        return;
+      }
+      
+      // LocalStorageをクリア
+      await clearPendingRecipe();
+      
+      // モーダルを閉じて遷移
+      setShowPendingRecipeModal(false);
+      setPendingRecipe(null);
+      router.replace('/(tabs)');
+    } catch (e) {
+      console.error('Save pending recipe error:', e);
+      setErrorText('下書きの保存に失敗しました');
+    } finally {
+      setIsSavingRecipe(false);
+    }
+  };
+
+  // 保留レシピを編集画面で開く（DB保存は編集画面で行う）
+  const handleOpenPendingRecipe = async () => {
+    if (!pendingRecipe || isSavingRecipe) return;
+
+    setIsSavingRecipe(true);
+    try {
+      const p = pendingRecipe;
+      // ループ表示防止のため、先にクリア
+      await clearPendingRecipe();
+      setShowPendingRecipeModal(false);
+      setPendingRecipe(null);
+
+      router.replace({
+        pathname: '/compose/edit',
+        params: {
+          title: p.title || '',
+          description: p.description || '',
+          koji_type: p.koji_type || '',
+          difficulty: p.difficulty || 'かんたん',
+          ingredients: p.ingredients || '[]',
+          steps: p.steps || '[]',
+          tips: p.tips || '',
+          image_base64: p.image_base64 || '',
+          calories: p.calories || '',
+          salt_g: p.salt_g || '',
+          cooking_time_min: p.cooking_time_min || '',
+          tags: p.tags || '[]',
+        },
+      } as any);
+    } catch (e) {
+      console.error('Open pending recipe error:', e);
+      setErrorText('編集画面の起動に失敗しました');
+    } finally {
+      setIsSavingRecipe(false);
+    }
+  };
+  
+  // 保留レシピを破棄
+  const handleDiscardPendingRecipe = async () => {
+    await clearPendingRecipe();
+    setShowPendingRecipeModal(false);
+    setPendingRecipe(null);
     router.replace('/(tabs)');
   };
 
@@ -230,7 +353,14 @@ export default function LoginScreen() {
         console.warn('Profile upsert exception:', profileErr);
       }
 
-      router.replace('/(tabs)');
+      // ログイン成功後、保留レシピをチェック
+      const pending = await getPendingRecipe();
+      if (pending) {
+        setPendingRecipe(pending);
+        setShowPendingRecipeModal(true);
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (e: any) {
       const apiUrl = `${API_BASE_URL}/api/auth/${isSignup ? 'email-signup' : 'email-login'}`;
       console.error('Login error:', e, 'API URL:', apiUrl);
@@ -541,6 +671,113 @@ export default function LoginScreen() {
           © 2026 GOCHISOKOJI. All rights reserved.
         </Text>
       </View>
+
+      {/* 保留レシピ確認モーダル */}
+      <Modal
+        visible={showPendingRecipeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}>
+              <View
+                style={[
+                  styles.modalLogoWrap,
+                  {
+                    backgroundColor: `${colors.primary}10`,
+                    borderColor: `${colors.primary}20`,
+                  },
+                ]}
+              >
+                {Platform.OS === 'web' ? (
+                  <img
+                    src="/login-logo.png"
+                    alt="GOCHISOKOJI"
+                    style={{ width: 40, height: 40, borderRadius: 12 }}
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/images/icon.png')}
+                    style={styles.modalLogoImage}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                前回のメニューがあります
+              </Text>
+            </View>
+            
+            {pendingRecipe && (
+              <View style={[styles.recipePreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.recipeTitle, { color: colors.text }]} numberOfLines={2}>
+                  {pendingRecipe.title || '（タイトルなし）'}
+                </Text>
+                {pendingRecipe.description && (
+                  <Text style={[styles.recipeDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
+                    {pendingRecipe.description}
+                  </Text>
+                )}
+                <View style={styles.recipeMeta}>
+                  {pendingRecipe.koji_type && (
+                    <Text style={[styles.recipeMetaText, { color: colors.primary }]}>
+                      🍶 {pendingRecipe.koji_type}
+                    </Text>
+                  )}
+                  {pendingRecipe.cooking_time_min && (
+                    <Text style={[styles.recipeMetaText, { color: colors.mutedForeground }]}>
+                      ⏱ {pendingRecipe.cooking_time_min}分
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+            
+            <Text style={[styles.modalMessage, { color: colors.mutedForeground }]}>
+              ログイン前に作成したメニューです。{'\n'}
+              編集画面に移動して内容を確認しますか？
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <Pressable
+                onPress={handleOpenPendingRecipe}
+                disabled={isSavingRecipe}
+                style={({ pressed }) => [
+                  styles.modalPrimaryButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: pressed || isSavingRecipe ? 0.8 : 1,
+                  },
+                ]}
+              >
+                {isSavingRecipe ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalPrimaryButtonText}>編集画面へ</Text>
+                )}
+              </Pressable>
+              
+              <Pressable
+                onPress={handleDiscardPendingRecipe}
+                disabled={isSavingRecipe}
+                style={({ pressed }) => [
+                  styles.modalSecondaryButton,
+                  {
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.modalSecondaryButtonText, { color: colors.mutedForeground }]}>
+                  破棄する
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -770,5 +1007,97 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 11,
+  },
+  // 保留レシピモーダル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    ...Shadows.lg,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  modalLogoWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  modalLogoImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  recipePreview: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  recipeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+  },
+  recipeDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
+  },
+  recipeMeta: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  recipeMetaText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  modalMessage: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
+  },
+  modalButtons: {
+    gap: Spacing.sm,
+  },
+  modalPrimaryButton: {
+    height: 48,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  modalSecondaryButton: {
+    height: 48,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontSize: 14,
   },
 });

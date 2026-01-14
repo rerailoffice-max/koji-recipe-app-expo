@@ -15,56 +15,6 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  React.useEffect(() => {
-    // 端末側で起きている「Network request failed」の発生源を特定するためのグローバルハンドラ
-    const runId = `global-err-${Date.now()}`;
-    // #region agent log
-    console.log('[DBG] install global error handlers', { runId });
-    // #endregion
-
-    const prevUnhandled = (globalThis as any).onunhandledrejection;
-    (globalThis as any).onunhandledrejection = (event: any) => {
-      // #region agent log
-      console.log('[DBG] onunhandledrejection', {
-        runId,
-        reason: event?.reason?.message ?? String(event?.reason ?? 'unknown'),
-      });
-      // #endregion
-      try {
-        prevUnhandled?.(event);
-      } catch {
-        // ignore
-      }
-    };
-
-    const ErrorUtilsAny = (globalThis as any).ErrorUtils;
-    const prevHandler = ErrorUtilsAny?.getGlobalHandler?.();
-    if (ErrorUtilsAny?.setGlobalHandler) {
-      ErrorUtilsAny.setGlobalHandler((error: any, isFatal?: boolean) => {
-        // #region agent log
-        console.log('[DBG] globalError', {
-          runId,
-          isFatal: !!isFatal,
-          message: error?.message ?? String(error),
-          name: error?.name ?? null,
-        });
-        // #endregion
-        try {
-          prevHandler?.(error, isFatal);
-        } catch {
-          // ignore
-        }
-      });
-    }
-
-    return () => {
-      (globalThis as any).onunhandledrejection = prevUnhandled;
-      if (ErrorUtilsAny?.setGlobalHandler && prevHandler) {
-        ErrorUtilsAny.setGlobalHandler(prevHandler);
-      }
-    };
-  }, []);
-
   return (
     <ToastProvider>
       <FontSizeProvider>

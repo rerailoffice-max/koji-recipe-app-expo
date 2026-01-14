@@ -329,15 +329,7 @@ export default function SettingsScreen() {
     try {
       setIsChangingPassword(true);
 
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleAddPassword:start',message:'Add password for Google user',data:{email:user?.email},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-2'})}).catch(()=>{});
-      // #endregion
-
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:handleAddPassword:result',message:'Add password result',data:{error:error?.message||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix-2'})}).catch(()=>{});
-      // #endregion
 
       if (error) throw error;
 
@@ -387,9 +379,6 @@ export default function SettingsScreen() {
     if (!user) return;
 
     const doDelete = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:start',message:'Delete account started (via API)',data:{userId:user.id,userEmail:user.email},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D,E'})}).catch(()=>{});
-      // #endregion
       try {
         // セッションを取得してアクセストークンを取得
         const { data: { session } } = await supabase.auth.getSession();
@@ -408,10 +397,6 @@ export default function SettingsScreen() {
 
         const result = await response.json();
 
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:apiResult',message:'Delete API result',data:{status:response.status,success:result?.success,error:result?.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-
         if (!response.ok || !result.success) {
           throw new Error(result.error || 'アカウントの削除に失敗しました');
         }
@@ -422,9 +407,6 @@ export default function SettingsScreen() {
         router.replace('/login');
         showToast({ message: 'アカウントを削除しました', type: 'success' });
       } catch (e: any) {
-        // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'settings.tsx:doDelete:catch',message:'Delete error caught',data:{errorMessage:e?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         console.error('Delete account error:', e);
         showToast({ message: e.message || 'アカウントの削除に失敗しました', type: 'error' });
       }

@@ -29,7 +29,7 @@ import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
-import { supabase } from '@/lib/supabase';
+import { supabase, savePendingRecipe } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 
 // API Base URL - 本番用
@@ -440,34 +440,13 @@ export default function ComposeScreen() {
     [handleSendInternal, isThinking, isGeneratingDraft]
   );
 
-  // チップをタップして送信
-  const handleChipPress = React.useCallback(
-    (reply: QuickReply) => {
-      if (isThinking || isGeneratingDraft) return;
-      
-      // 「いい感じ、下書きして」チップの場合は下書き生成
-      if (reply.label.includes('下書き') || reply.text.includes('下書き')) {
-        handleGenerateDraft();
-        return;
-      }
-      
-      // 通常のチップは通常送信
-      handleSendInternal(reply.text, false, undefined);
-    },
-    [isThinking, isGeneratingDraft, handleSendInternal]
-  );
-
   // 下書き生成してフォーム画面へ遷移（会話からレシピを抽出）
   const handleGenerateDraft = React.useCallback(async () => {
     if (isGeneratingDraft || isThinking) return;
     
     // ログインチェック
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showToast({ message: '下書き保存にはログインが必要です', type: 'info' });
-      setTimeout(() => router.push('/login'), 1500);
-      return;
-    }
+    const isLoggedIn = !!user;
     
     setIsGeneratingDraft(true);
     setSuggestions([]); // チップを非表示にする
@@ -510,13 +489,6 @@ export default function ComposeScreen() {
       if (res.ok && json?.success && json?.recipe) {
         const recipe = json.recipe;
         
-        // 成功メッセージを追加
-        setMessages((prev) => [
-          ...prev,
-          { id: resultMsgId, role: 'ai' as const, text: `「${recipe.title}」の下書きを作成しました！\n編集画面に移動します...` },
-        ]);
-        setSuggestions([]);
-        
         // 会話履歴から画像を探す（最新の画像を使用）
         let imageBase64 = '';
         for (let i = currentMessages.length - 1; i >= 0; i--) {
@@ -530,7 +502,6 @@ export default function ComposeScreen() {
           }
         }
         
-        // 完成状態にして、遷移データを保存
         // メニュー案カードの栄養情報を優先（一貫性のため）
         const savedNutrition = selectedMenuNutritionRef.current;
         const finalCalories = savedNutrition?.caloriesKcal ?? recipe.calories;
@@ -547,6 +518,43 @@ export default function ComposeScreen() {
         } else if (finalKojiType.includes('コンソメ風こうじ') || finalKojiType.includes('コンソメ風')) {
           normalizedKojiType = 'コンソメ麹';
         }
+        
+        // ログインしていない場合: LocalStorageに保存してログイン画面へ
+        if (!isLoggedIn) {
+          // レシピをLocalStorageに保存
+          await savePendingRecipe({
+            title: recipe.title || '',
+            description: recipe.description || '',
+            koji_type: normalizedKojiType,
+            difficulty: recipe.difficulty || 'かんたん',
+            ingredients: JSON.stringify(recipe.ingredients || []),
+            steps: JSON.stringify(recipe.steps || []),
+            tips: recipe.tips || '',
+            image_base64: imageBase64 || '',
+            calories: finalCalories ? String(finalCalories) : '',
+            salt_g: finalSaltG ? String(finalSaltG) : '',
+            cooking_time_min: finalTime ? String(finalTime) : '',
+            tags: JSON.stringify(recipe.tags || []),
+          });
+          
+          // メッセージを追加
+          setMessages((prev) => [
+            ...prev,
+            { id: resultMsgId, role: 'ai' as const, text: `「${recipe.title}」のレシピを準備しました！\nログイン後に下書きとして保存できます。` },
+          ]);
+          
+          setIsGeneratingDraft(false);
+          showToast({ message: 'ログインすると下書きに保存できます', type: 'info' });
+          setTimeout(() => router.push('/login'), 1500);
+          return;
+        }
+        
+        // ログインしている場合: 編集画面へ遷移
+        setMessages((prev) => [
+          ...prev,
+          { id: resultMsgId, role: 'ai' as const, text: `「${recipe.title}」の下書きを作成しました！\n編集画面に移動します...` },
+        ]);
+        setSuggestions([]);
         
         pendingNavigationRef.current = {
           pathname: '/compose/edit',
@@ -592,6 +600,23 @@ export default function ComposeScreen() {
       setIsGeneratingDraft(false);
     }
   }, [isGeneratingDraft, isThinking, messages, router, showToast]);
+
+  // チップをタップして送信
+  const handleChipPress = React.useCallback(
+    (reply: QuickReply) => {
+      if (isThinking || isGeneratingDraft) return;
+      
+      // 「いい感じ、下書きして」チップの場合は下書き生成
+      if (reply.label.includes('下書き') || reply.text.includes('下書き')) {
+        handleGenerateDraft();
+        return;
+      }
+      
+      // 通常のチップは通常送信
+      handleSendInternal(reply.text, false, undefined);
+    },
+    [isThinking, isGeneratingDraft, handleSendInternal, handleGenerateDraft]
+  );
   
   // スキップしてフォーム画面へ遷移
   const handleSkipToForm = React.useCallback(() => {

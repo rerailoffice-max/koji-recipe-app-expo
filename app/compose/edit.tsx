@@ -111,6 +111,14 @@ function normalizeDigits(input: string): string {
 function parseNumberToken(token: string): number | null {
   const t = normalizeDigits(token);
   if (!t) return null;
+  const mixed = t.match(/^(\d+)と(\d+)\/(\d+)$/);
+  if (mixed) {
+    const i = Number(mixed[1]);
+    const a = Number(mixed[2]);
+    const b = Number(mixed[3]);
+    if (![i, a, b].every(Number.isFinite) || b === 0) return null;
+    return i + a / b;
+  }
   const frac = t.match(/^(\d+)(?:\/(\d+))$/);
   if (frac) {
     const a = Number(frac[1]);
@@ -156,7 +164,7 @@ function scaleIngredientAmount(amountRaw: string, ratio: number): string {
   if (!/[0-9]/.test(s)) return amountRaw;
 
   // レンジ（例: 1〜2個 / 1-2）
-  const range = s.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(?:〜|-)(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  const range = s.match(/^(\d+(?:\.\d+)?|\d+\/\d+|\d+と\d+\/\d+)(?:〜|-)(\d+(?:\.\d+)?|\d+\/\d+|\d+と\d+\/\d+)(.*)$/);
   if (range) {
     const a = parseNumberToken(range[1]);
     const b = parseNumberToken(range[2]);
@@ -171,7 +179,7 @@ function scaleIngredientAmount(amountRaw: string, ratio: number): string {
   }
 
   // 小さじ/大さじ（例: 小さじ1/2）
-  const spoon = s.match(/^(小さじ|大さじ)(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  const spoon = s.match(/^(小さじ|大さじ)(\d+(?:\.\d+)?|\d+\/\d+|\d+と\d+\/\d+)(.*)$/);
   if (spoon) {
     const head = spoon[1];
     const n = parseNumberToken(spoon[2]);
@@ -183,7 +191,7 @@ function scaleIngredientAmount(amountRaw: string, ratio: number): string {
   }
 
   // 先頭数値＋残り（例: 100g / 1/2個 / 2本）
-  const m = s.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(.*)$/);
+  const m = s.match(/^(\d+(?:\.\d+)?|\d+\/\d+|\d+と\d+\/\d+)(.*)$/);
   if (!m) return amountRaw;
   const n = parseNumberToken(m[1]);
   const tail = m[2] ?? '';
@@ -258,6 +266,10 @@ export default function RecipeEditScreen() {
   const modalScaleAnim = React.useRef(new Animated.Value(0.9)).current;
   const modalOpacityAnim = React.useRef(new Animated.Value(0)).current;
   const [tagOptions, setTagOptions] = React.useState<TagOption[]>(DEFAULT_TAG_OPTIONS);
+
+  // 人数スケールのベース（累積換算で分量が崩れないようにする）
+  const baseServingsRef = React.useRef<number>(2);
+  const baseIngredientsRef = React.useRef<Ingredient[] | null>(null);
 
   // タグリストを取得
   React.useEffect(() => {
@@ -338,6 +350,15 @@ export default function RecipeEditScreen() {
         tags: initialTags,
         tips: params.tips || '',
       });
+
+      // ベース値を更新（この時点の材料が「基準」）
+      const nextBaseServings = (() => {
+        const n = params.servings ? Number(params.servings) : 2;
+        if (!Number.isFinite(n)) return 2;
+        return Math.min(8, Math.max(1, Math.round(n)));
+      })();
+      baseServingsRef.current = nextBaseServings;
+      baseIngredientsRef.current = initialIngredients.length > 0 ? initialIngredients : [{ name: '', amount: '' }];
       
       // チャットから渡された画像を設定（Base64）
       if (params.image_base64) {
@@ -418,12 +439,18 @@ export default function RecipeEditScreen() {
 
   // 材料の更新
   const updateIngredient = (index: number, field: 'name' | 'amount', value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      ingredients: prev.ingredients.map((ing, i) =>
+    setFormData((prev) => {
+      const nextIngredients = prev.ingredients.map((ing, i) =>
         i === index ? { ...ing, [field]: value } : ing
-      ),
-    }));
+      );
+      // 手動編集後は「現在の状態」を新しいベースとして扱う（次の人数変更で分量が崩れない）
+      baseServingsRef.current = prev.servings || 2;
+      baseIngredientsRef.current = nextIngredients;
+      return {
+        ...prev,
+        ingredients: nextIngredients,
+      };
+    });
   };
 
   // 何人分（1〜8）
@@ -431,8 +458,10 @@ export default function RecipeEditScreen() {
     const clamped = Math.min(8, Math.max(1, Math.round(next)));
     setFormData((prev) => {
       if (prev.servings === clamped) return prev;
-      const ratio = clamped / (prev.servings || 1);
-      const nextIngredients = prev.ingredients.map((ing) => ({
+      const baseServings = baseServingsRef.current || 2;
+      const ratio = clamped / baseServings;
+      const baseIngredients = baseIngredientsRef.current ?? prev.ingredients;
+      const nextIngredients = baseIngredients.map((ing) => ({
         ...ing,
         amount: scaleIngredientAmount(ing.amount, ratio),
       }));

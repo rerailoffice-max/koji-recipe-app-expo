@@ -68,12 +68,12 @@ export function CardPost({
   const colors = Colors[colorScheme ?? 'light'];
   const { fontScale } = useFontSize();
 
-  // 材料名を最大3つ表示
+  // 材料名を最大5つ表示
   const ingredientNames = React.useMemo(() => {
     const names = (ingredients ?? [])
       .map((i) => (i?.name ?? '').trim())
       .filter(Boolean);
-    return names.slice(0, 3);
+    return names.slice(0, 5);
   }, [ingredients]);
 
   const authorInitial = (authorName ?? '').trim().slice(0, 1) || 'U';
@@ -100,8 +100,12 @@ export function CardPost({
 
           {/* 材料 */}
           {ingredientNames.length > 0 && (
-            <Text style={[styles.ingredients, { color: colors.mutedForeground, fontSize: scaledFontSize(13, fontScale) }]} numberOfLines={1}>
-              {ingredientNames.join('、')}…
+            <Text 
+              style={[styles.ingredients, { color: colors.mutedForeground, fontSize: scaledFontSize(13, fontScale) }]} 
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {ingredientNames.join('、')}
             </Text>
           )}
 

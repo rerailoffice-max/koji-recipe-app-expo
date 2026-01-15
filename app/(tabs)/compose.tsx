@@ -1262,8 +1262,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appBarButton: {
-    width: 44,
+    minWidth: 44,
     height: 44,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

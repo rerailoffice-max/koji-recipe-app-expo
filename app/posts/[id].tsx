@@ -1,24 +1,24 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
 import { AppBar } from '@/components/ui/AppBar';
 import { ChipTag } from '@/components/ui/ChipTag';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BorderRadius, Colors, Shadows, Spacing } from '@/constants/theme';
 import { useToast } from '@/contexts/ToastContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { supabase } from '@/lib/supabase';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 型定義
 interface Ingredient {
@@ -118,14 +118,12 @@ export default function PostDetailScreen() {
 
         setPost(data as Post);
         
-        // 閲覧数をカウントアップ（非同期で実行、エラーは無視）
-        supabase
-          .from('posts')
-          .update({ view_count: (data.view_count || 0) + 1 })
-          .eq('id', id)
-          .then(({ error }) => {
-            if (error) console.warn('View count update failed:', error);
-          });
+        // 閲覧数をカウントアップ（API経由でRLSをバイパス）
+        fetch('https://api.gochisokoji.com/api/posts/view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postId: id }),
+        }).catch((err) => console.warn('View count update failed:', err));
       } catch (e) {
         console.error('Post fetch error:', e);
         Alert.alert('エラー', 'レシピの取得に失敗しました');

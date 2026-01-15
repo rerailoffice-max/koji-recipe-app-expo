@@ -1272,6 +1272,7 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontWeight: '500',
+    flexShrink: 0,
   },
   listContent: {
     paddingTop: Spacing.md,

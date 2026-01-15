@@ -24,19 +24,19 @@ export default function TabLayout() {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'web' ? 56 : 90,
-          paddingTop: 10,
-          paddingBottom: Platform.OS === 'web' ? 8 : 34,
+          height: Platform.OS === 'web' ? 70 : 100,
+          paddingTop: 12,
+          paddingBottom: Platform.OS === 'web' ? 10 : 36,
           ...Shadows.sm,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: '600',
-          marginTop: 2,
+          marginTop: 4,
           marginBottom: Platform.OS === 'web' ? 0 : 4,
         },
         tabBarIconStyle: {
-          marginTop: 0,
+          marginTop: 2,
         },
       }}>
       <Tabs.Screen
@@ -45,7 +45,7 @@ export default function TabLayout() {
           title: 'ホーム',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
-              size={24}
+              size={26}
               name={focused ? 'house.fill' : 'house'}
               color={color}
             />
@@ -58,7 +58,7 @@ export default function TabLayout() {
           title: 'レシピ作成',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
-              size={24}
+              size={26}
               name="sparkles"
               color={color}
             />
@@ -71,7 +71,7 @@ export default function TabLayout() {
           title: 'マイページ',
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
-              size={24}
+              size={26}
               name={focused ? 'person.fill' : 'person'}
               color={color}
             />

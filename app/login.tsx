@@ -57,18 +57,20 @@ export default function LoginScreen() {
   React.useEffect(() => {
     const checkSession = async () => {
       try {
+        // pending=1パラメータがある場合は先に保留レシピをチェック
+        // （auth/callbackからのリダイレクト時、セッション確立が遅れる場合があるため）
+        if (hasPendingParam) {
+          const pending = await getPendingRecipe();
+          if (pending) {
+            setPendingRecipe(pending);
+            setShowPendingRecipeModal(true);
+            setIsCheckingSession(false);
+            return;
+          }
+        }
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // pending=1パラメータがある場合は保留レシピをチェック
-          if (hasPendingParam) {
-            const pending = await getPendingRecipe();
-            if (pending) {
-              setPendingRecipe(pending);
-              setShowPendingRecipeModal(true);
-              setIsCheckingSession(false);
-              return;
-            }
-          }
           router.replace('/');
         }
       } catch (e) {

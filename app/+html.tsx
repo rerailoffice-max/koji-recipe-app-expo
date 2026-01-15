@@ -6,8 +6,8 @@ import type { PropsWithChildren } from 'react';
  * PWAでピンチズームを無効化するためのviewport設定を含む
  */
 export default function Root({ children }: PropsWithChildren) {
-  const ogTitle = 'GOCHISOKOJI - 麹レシピ';
-  const ogDescription = '麹レシピを、AIと。毎日の料理を麹でおいしく、健康に。';
+  const ogTitle = 'GOCHISOKOJI｜麹レシピアプリ';
+  const ogDescription = '麹レシピをAIがサポート。手軽においしく、健康的な食卓へ。';
   const ogImage = 'https://www.gochisokoji.com/ogp.png';
   const ogUrl = 'https://www.gochisokoji.com/';
 

@@ -336,6 +336,12 @@ export default function PostDetailScreen() {
                         steps: JSON.stringify(post.steps || []),
                         image_url: post.image_url || '',
                         servings: String(servings),
+                        // 栄養情報・タグ・コツを追加
+                        calories: post.calories ? String(post.calories) : '',
+                        salt_g: post.salt_g ? String(post.salt_g) : '',
+                        cooking_time_min: post.cooking_time_min ? String(post.cooking_time_min) : '',
+                        tags: JSON.stringify(post.tags || []),
+                        tips: post.tips || '',
                       },
                     })
                   }

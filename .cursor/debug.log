@@ -32,3 +32,4 @@
 {"location":"supabase.ts:getPendingRecipe:expiry","message":"getPendingRecipe expiry","data":{"expired":false,"elapsedMs":25912},"timestamp":1768357654150,"sessionId":"debug-session","runId":"dbg-pending-1","hypothesisId":"H5"}
 {"location":"login.tsx:handleEmailSubmit:afterGetPending","message":"Got pending recipe result","data":{"hasPending":true,"title":"きゅうりの旨塩風和え"},"timestamp":1768357654151,"sessionId":"debug-session","runId":"dbg-pending-1","hypothesisId":"H2"}
 {"location":"login.tsx:handleEmailSubmit:showModal","message":"Showing pending recipe modal","data":{"title":"きゅうりの旨塩風和え"},"timestamp":1768357654151,"sessionId":"debug-session","runId":"dbg-pending-1","hypothesisId":"H4"}
+{"location":"icon-symbol.tsx:IconSymbol","message":"Missing icon mapping","data":{"requestedName":"person.crop.circle","fallbackUsed":"help-outline"},"timestamp":1768496224639,"sessionId":"debug-session","runId":"icon-debug","hypothesisId":"A,B"}

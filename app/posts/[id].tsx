@@ -48,9 +48,16 @@ interface Post {
   servings?: number | null;
   ingredients: Ingredient[] | null;
   steps: Step[] | null;
+  tips?: string | null;
   view_count: number;
   user_id: string;
   user: PostUser | null;
+  // 栄養情報
+  calories?: number | null;
+  salt_g?: number | null;
+  cooking_time_min?: number | null;
+  // タグ
+  tags?: string[] | null;
 }
 
 // 麹タイプの表示名変換
@@ -112,10 +119,13 @@ export default function PostDetailScreen() {
         setPost(data as Post);
         
         // 閲覧数をカウントアップ（非同期で実行、エラーは無視）
-        void supabase
+        supabase
           .from('posts')
           .update({ view_count: (data.view_count || 0) + 1 })
-          .eq('id', id);
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('View count update failed:', error);
+          });
       } catch (e) {
         console.error('Post fetch error:', e);
         Alert.alert('エラー', 'レシピの取得に失敗しました');
@@ -403,7 +413,37 @@ export default function PostDetailScreen() {
           <View style={styles.tags}>
             <ChipTag type="koji" label={toKojiDisplayName(post.koji_type)} />
             {post.difficulty && <ChipTag type="difficulty" label={post.difficulty} />}
+            {post.tags && post.tags.length > 0 && post.tags.map((tag, idx) => (
+              <ChipTag key={idx} type="tag" label={tag} />
+            ))}
           </View>
+
+          {/* 栄養情報 */}
+          {(post.calories || post.salt_g || post.cooking_time_min) && (
+            <View style={[styles.nutritionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {post.cooking_time_min && (
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionIcon}>⏱</Text>
+                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.cooking_time_min}分</Text>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>調理時間</Text>
+                </View>
+              )}
+              {post.calories && (
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionIcon}>🔥</Text>
+                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.calories}kcal</Text>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>カロリー</Text>
+                </View>
+              )}
+              {post.salt_g && (
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionIcon}>🧂</Text>
+                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.salt_g}g</Text>
+                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>塩分</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* 投稿者情報 */}
           <View style={styles.authorRow}>
@@ -483,6 +523,16 @@ export default function PostDetailScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+          )}
+
+          {/* コツ */}
+          {post.tips && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>💡 コツ・ポイント</Text>
+              <View style={[styles.tipsCard, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
+                <Text style={[styles.tipsText, { color: colors.text }]}>{post.tips}</Text>
+              </View>
             </View>
           )}
 
@@ -686,6 +736,40 @@ const styles = StyleSheet.create({
   viewCount: {
     fontSize: 14,
     paddingTop: Spacing.md,
+  },
+  // 栄養情報カード
+  nutritionCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  nutritionItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  nutritionIcon: {
+    fontSize: 18,
+  },
+  nutritionValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  nutritionLabel: {
+    fontSize: 10,
+  },
+  // コツカード
+  tipsCard: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  tipsText: {
+    fontSize: 14,
+    lineHeight: 22,
   },
 });
 

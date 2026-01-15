@@ -1,36 +1,34 @@
-import React from 'react';
 import {
-  View,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  ActivityIndicator,
-  Text,
-  Modal,
-  Pressable,
-  Image,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
-import {
-  ChatMessageBubble,
-  QuickReplyChips,
-  ComposerBar,
-  type ChatAttachment,
-  type QuickReply,
+    ChatMessageBubble,
+    ComposerBar,
+    QuickReplyChips,
+    type ChatAttachment,
+    type QuickReply,
 } from '@/components/chat';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useToast } from '@/contexts/ToastContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
-import { supabase, savePendingRecipe } from '@/lib/supabase';
-import { useToast } from '@/contexts/ToastContext';
+import { savePendingRecipe, supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';

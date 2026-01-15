@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-type ChipType = 'koji' | 'time' | 'count' | 'difficulty';
+type ChipType = 'koji' | 'time' | 'count' | 'difficulty' | 'tag';
 
 interface ChipTagProps {
   label: string;
@@ -22,6 +22,12 @@ export function ChipTag({ label, type = 'koji', icon }: ChipTagProps) {
           backgroundColor: `${colors.primary}1A`, // 10% opacity
           borderColor: `${colors.primary}33`, // 20% opacity
           textColor: colors.primary,
+        };
+      case 'tag':
+        return {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          textColor: colors.text,
         };
       case 'time':
       case 'count':

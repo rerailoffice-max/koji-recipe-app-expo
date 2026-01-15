@@ -8,7 +8,7 @@ import type { PropsWithChildren } from 'react';
 export default function Root({ children }: PropsWithChildren) {
   const ogTitle = 'GOCHISOKOJI｜麹レシピアプリ';
   const ogDescription = '麹レシピをAIがサポート。手軽においしく、健康的な食卓へ。';
-  const ogImage = 'https://www.gochisokoji.com/ogp.png';
+  const ogImage = 'https://www.gochisokoji.com/ogp.png?v=20260115';
   const ogUrl = 'https://www.gochisokoji.com/';
 
   return (

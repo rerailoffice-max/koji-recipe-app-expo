@@ -396,6 +396,7 @@ export default function HomeScreen() {
         cookingTimeMin={item.cooking_time_min}
         calories={item.calories}
         saltG={item.salt_g}
+        showOnlyTime={true}
         onClick={() => {
           router.push(`/posts/${item.id}` as any);
         }}

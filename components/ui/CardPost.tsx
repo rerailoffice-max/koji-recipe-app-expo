@@ -30,6 +30,8 @@ interface CardPostProps {
   cookingTimeMin?: number | null;
   calories?: number | null;
   saltG?: number | null;
+  // 表示制御
+  showOnlyTime?: boolean;
 }
 
 // 麹タイプの表示名変換
@@ -63,6 +65,7 @@ export function CardPost({
   cookingTimeMin,
   calories,
   saltG,
+  showOnlyTime = false,
 }: CardPostProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -101,7 +104,7 @@ export function CardPost({
           {/* 材料 */}
           {ingredientNames.length > 0 && (
             <Text 
-              style={[styles.ingredients, { color: colors.mutedForeground, fontSize: scaledFontSize(13, fontScale) }]} 
+              style={[styles.ingredients, { color: colors.mutedForeground, fontSize: scaledFontSize(10, fontScale) }]} 
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -109,21 +112,24 @@ export function CardPost({
             </Text>
           )}
 
-          {/* タグ */}
-          <View style={styles.tags}>
+          {/* タグと調理時間を横並び */}
+          <View style={styles.tagAndTimeRow}>
+            {/* タグ */}
             <ChipTag type="koji" label={toKojiDisplayName(kojiType)} />
+            
+            {/* 調理時間 */}
+            {cookingTimeMin && (
+              <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
+                <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
+                  ⏱{cookingTimeMin}分
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* 栄養情報バッジ */}
-          {(cookingTimeMin || calories || saltG) && (
+          {/* 栄養情報バッジ（カロリー・塩分のみ、showOnlyTime=falseの時のみ） */}
+          {!showOnlyTime && (calories || saltG) && (
             <View style={styles.nutritionBadges}>
-              {cookingTimeMin && (
-                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
-                    ⏱{cookingTimeMin}分
-                  </Text>
-                </View>
-              )}
               {calories && (
                 <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
                   <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
@@ -207,7 +213,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-    height: 130, // 固定高さ（バランス調整）
+    height: 140, // 固定高さ（レイアウト改善で拡大）
   },
   content: {
     flexDirection: 'row',
@@ -227,7 +233,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   ingredients: {
-    fontSize: 13,
+    fontSize: 10,
+  },
+  tagAndTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
   tags: {
     flexDirection: 'row',

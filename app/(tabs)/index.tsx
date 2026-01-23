@@ -253,7 +253,7 @@ export default function HomeScreen() {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('posts')
         .select('id, title, image_url, koji_type')
         .eq('is_public', true)
@@ -263,20 +263,43 @@ export default function HomeScreen() {
       
       if (error) {
         console.error('Supabase weekly fetch error:', error);
-      } else if (data && data.length > 0) {
-        // 日付のラベルを付与（WeeklyRecipe型に合わせる: day, image）
-        // 今日から始まって、月、火、水...と1週間を表示
+      }
+      
+      // データが7件未満の場合、全期間から補充
+      if (data && data.length < 7) {
+        const existingIds = data.map(p => p.id);
+        const { data: moreData } = await supabase
+          .from('posts')
+          .select('id, title, image_url, koji_type')
+          .eq('is_public', true)
+          .not('id', 'in', `(${existingIds.join(',')})`)
+          .order('view_count', { ascending: false })
+          .limit(7 - data.length);
+        
+        if (moreData) {
+          data = [...data, ...moreData];
+        }
+      }
+      
+      // 7日分のラベルを付与
+      if (data && data.length > 0) {
         const days = ['日', '月', '火', '水', '木', '金', '土'];
-        const recipes: WeeklyRecipe[] = data.map((post, index) => {
+        const recipes: WeeklyRecipe[] = [];
+        
+        for (let i = 0; i < 7; i++) {
           const date = new Date();
-          date.setDate(date.getDate() + index); // 今日から未来へ
-          return {
-            id: post.id,
-            title: post.title,
-            image: post.image_url,
-            day: days[date.getDay()],
-          };
-        });
+          date.setDate(date.getDate() + i); // 今日から未来へ
+          
+          if (data[i]) {
+            recipes.push({
+              id: data[i].id,
+              title: data[i].title,
+              image: data[i].image_url,
+              day: days[date.getDay()],
+            });
+          }
+        }
+        
         setWeeklyRecipes(recipes);
       }
     } catch (e) {
@@ -452,9 +475,22 @@ export default function HomeScreen() {
         titleComponent={
           Platform.OS === 'web' ? (
             <img
+              ref={(el) => {
+                // #region agent log
+                if (el) {
+                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:454',message:'Logo image natural size',data:{naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:455',message:'Logo image rendered size',data:{clientWidth:el.clientWidth,clientHeight:el.clientHeight,offsetWidth:el.offsetWidth,offsetHeight:el.offsetHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B,E'})}).catch(()=>{});
+                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:456',message:'Logo image computed style',data:{computedWidth:window.getComputedStyle(el).width,computedHeight:window.getComputedStyle(el).height,computedMaxWidth:window.getComputedStyle(el).maxWidth},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,E'})}).catch(()=>{});
+                  if (el.parentElement) {
+                    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:457',message:'Logo parent container size',data:{parentWidth:el.parentElement.clientWidth,parentHeight:el.parentElement.clientHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+                  }
+                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:458',message:'Window viewport size',data:{windowWidth:window.innerWidth,windowHeight:window.innerHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
+                }
+                // #endregion
+              }}
               src="/logo-gochisokoji.png"
-              alt="GOCHISOKOJI"
-              style={{ height: 32, width: 200 }}
+              alt="GOCHISOKOJI専用レシピサイト"
+              style={{ height: 'auto', width: 'auto', maxWidth: 'min(360px, 90vw)' }}
             />
           ) : (
             <Text style={styles.logoText}>GOCHISOKOJI</Text>

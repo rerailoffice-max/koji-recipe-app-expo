@@ -259,14 +259,40 @@ export default function MyRecipesScreen() {
             },
           ]}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.avatar, { backgroundColor: colors.muted }]}>
-                <IconSymbol name="person" size={20} color={colors.mutedForeground} />
-              </View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>マイページ</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <View style={[styles.avatar, { backgroundColor: colors.muted }]}>
+              <IconSymbol name="person" size={20} color={colors.mutedForeground} />
             </View>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>マイページ</Text>
           </View>
+
+          {/* 右アイコン（ログアウト時も表示） */}
+          <View style={styles.headerRight}>
+            {/* 麹を購入 */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => Linking.openURL(KOJI_PURCHASE_URL)}
+            >
+              <IconSymbol name="cart" size={22} color={colors.text} />
+            </Pressable>
+            {/* アプリを共有 */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={async () => {
+                try {
+                  await Clipboard.setStringAsync(APP_URL);
+                  showToast({ message: 'URLをコピーしました', type: 'success' });
+                } catch (e) {
+                  console.error('Copy URL error:', e);
+                  showToast({ message: 'コピーに失敗しました', type: 'error' });
+                }
+              }}
+            >
+              <IconSymbol name="square.and.arrow.up" size={22} color={colors.text} />
+            </Pressable>
+          </View>
+        </View>
         </View>
 
         {/* ログイン促進画面 */}

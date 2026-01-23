@@ -530,15 +530,21 @@ export default function PostDetailScreen() {
             </View>
           )}
 
-          {/* コツ */}
-          {post.tips && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>💡 コツ・ポイント</Text>
+          {/* コツ・ポイント（常に表示） */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>💡 コツ・ポイント</Text>
+            {post.tips ? (
               <View style={[styles.tipsCard, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
                 <Text style={[styles.tipsText, { color: colors.text }]}>{post.tips}</Text>
               </View>
-            </View>
-          )}
+            ) : (
+              <View style={[styles.tipsCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Text style={[styles.tipsText, { color: colors.mutedForeground, fontStyle: 'italic' }]}>
+                  コツ・ポイントはまだ登録されていません
+                </Text>
+              </View>
+            )}
+          </View>
 
           {/* 閲覧数（管理者のみ表示） */}
           {isAdmin && (

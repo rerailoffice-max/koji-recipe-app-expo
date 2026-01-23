@@ -28,10 +28,6 @@ interface CardPostProps {
   onClick?: () => void;
   // 栄養情報
   cookingTimeMin?: number | null;
-  calories?: number | null;
-  saltG?: number | null;
-  // 表示制御
-  showOnlyTime?: boolean;
 }
 
 // 麹タイプの表示名変換
@@ -63,9 +59,6 @@ export function CardPost({
   onToggleSave,
   onClick,
   cookingTimeMin,
-  calories,
-  saltG,
-  showOnlyTime = false,
 }: CardPostProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -126,26 +119,6 @@ export function CardPost({
               </View>
             )}
           </View>
-
-          {/* 栄養情報バッジ（カロリー・塩分のみ、showOnlyTime=falseの時のみ） */}
-          {!showOnlyTime && (calories || saltG) && (
-            <View style={styles.nutritionBadges}>
-              {calories && (
-                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
-                    約{calories}kcal
-                  </Text>
-                </View>
-              )}
-              {saltG && (
-                <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
-                    🧂{saltG}g
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
 
           {/* スペーサー */}
           <View style={styles.spacer} />

@@ -422,30 +422,14 @@ export default function PostDetailScreen() {
             ))}
           </View>
 
-          {/* 栄養情報 */}
-          {(post.calories || post.salt_g || post.cooking_time_min) && (
+          {/* 栄養情報（調理時間のみ） */}
+          {post.cooking_time_min && (
             <View style={[styles.nutritionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {post.cooking_time_min && (
-                <View style={styles.nutritionItem}>
-                  <Text style={styles.nutritionIcon}>⏱</Text>
-                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.cooking_time_min}分</Text>
-                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>調理時間</Text>
-                </View>
-              )}
-              {post.calories && (
-                <View style={styles.nutritionItem}>
-                  <Text style={styles.nutritionIcon}>🔥</Text>
-                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.calories}kcal</Text>
-                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>カロリー</Text>
-                </View>
-              )}
-              {post.salt_g && (
-                <View style={styles.nutritionItem}>
-                  <Text style={styles.nutritionIcon}>🧂</Text>
-                  <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.salt_g}g</Text>
-                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>塩分</Text>
-                </View>
-              )}
+              <View style={styles.nutritionItem}>
+                <Text style={styles.nutritionIcon}>⏱</Text>
+                <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.cooking_time_min}分</Text>
+                <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>調理時間</Text>
+              </View>
             </View>
           )}
 

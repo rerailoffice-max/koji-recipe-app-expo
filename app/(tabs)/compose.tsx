@@ -15,6 +15,7 @@ import { useImagePicker } from '@/hooks/use-image-picker';
 import { savePendingRecipe, supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     ActivityIndicator,
     Alert,
@@ -32,6 +33,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
+
+// LocalStorageキー
+const LAST_AI_RECIPE_KEY = 'lastAiRecipeProposal';
 
 // チャットボット（GOCHISOシェフ）アバター：アプリ内画像を使用（キャッシュ/外部依存を回避）
 const AI_AVATAR_SOURCE = require('../../assets/images/icon.png');
@@ -238,6 +242,46 @@ export default function ComposeScreen() {
 
   // FlatListのref
   const flatListRef = React.useRef<FlatList>(null);
+  
+  // 画面読み込み時にLocalStorageから前回のAI提案を復元
+  React.useEffect(() => {
+    const loadLastRecipe = async () => {
+      try {
+        let stored: string | null = null;
+        if (Platform.OS === 'web') {
+          stored = localStorage.getItem(LAST_AI_RECIPE_KEY);
+        } else {
+          stored = await AsyncStorage.getItem(LAST_AI_RECIPE_KEY);
+        }
+        
+        if (stored) {
+          const data = JSON.parse(stored);
+          // 24時間以内のものだけ復元
+          if (Date.now() - data.timestamp < 86400000) {
+            setMessages(data.messages || []);
+            if (data.nutrition) {
+              selectedMenuNutritionRef.current = data.nutrition;
+            }
+            if (data.pendingNavigation) {
+              pendingNavigationRef.current = data.pendingNavigation;
+            }
+            setHasStarted(true); // 会話開始済みとマーク
+          } else {
+            // 古いデータは削除
+            if (Platform.OS === 'web') {
+              localStorage.removeItem(LAST_AI_RECIPE_KEY);
+            } else {
+              await AsyncStorage.removeItem(LAST_AI_RECIPE_KEY);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load last recipe:', e);
+      }
+    };
+    
+    loadLastRecipe();
+  }, []);
   
   // ページ読み込み時に全カテゴリのメニュー案を事前生成（allCategories: true で1回のAPI呼び出し）
   React.useEffect(() => {
@@ -575,6 +619,23 @@ export default function ComposeScreen() {
           },
         };
         setIsDraftComplete(true);
+        
+        // LocalStorageに保存（次回再表示用）
+        try {
+          const storageData = JSON.stringify({
+            messages: currentMessages,
+            timestamp: Date.now(),
+            nutrition: selectedMenuNutritionRef.current,
+            pendingNavigation: pendingNavigationRef.current,
+          });
+          if (Platform.OS === 'web') {
+            localStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
+          } else {
+            await AsyncStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
+          }
+        } catch (storageError) {
+          console.error('Failed to save to storage:', storageError);
+        }
       } else {
         // エラーメッセージを追加
         setMessages((prev) => [

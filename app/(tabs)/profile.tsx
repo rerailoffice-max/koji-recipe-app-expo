@@ -36,6 +36,17 @@ const FILTER_TABS: { id: Exclude<FilterTab, 'all'>; label: string; icon: string 
   { id: 'drafts', label: '下書き', icon: 'square.and.pencil' },
 ];
 
+// ひらがな・カタカナを統一する関数
+function normalizeText(text: string): string {
+  // カタカナ→ひらがな変換
+  const kanaToHira = (str: string) =>
+    str.replace(/[\u30a1-\u30f6]/g, (m) =>
+      String.fromCharCode(m.charCodeAt(0) - 0x60)
+    );
+  
+  return kanaToHira(text.toLowerCase());
+}
+
 export default function MyRecipesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -222,11 +233,11 @@ export default function MyRecipesScreen() {
     router.push(`/posts/${id}` as any);
   };
 
-  // 検索フィルタリング
+  // 検索フィルタリング（表記ゆれ対応）
   const filterBySearch = React.useCallback((recipes: RecipeItem[]) => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeText(searchQuery.trim());
     if (!q) return recipes;
-    return recipes.filter((r) => r.title?.toLowerCase().includes(q));
+    return recipes.filter((r) => normalizeText(r.title ?? '').includes(q));
   }, [searchQuery]);
 
   const filteredSavedRecipes = React.useMemo(() => filterBySearch(savedRecipes), [savedRecipes, filterBySearch]);

@@ -51,6 +51,17 @@ const TABS = [
   { id: 'popular', label: '人気' },
 ];
 
+// ひらがな・カタカナ・漢字を統一する関数
+function normalizeText(text: string): string {
+  // カタカナ→ひらがな変換
+  const kanaToHira = (str: string) =>
+    str.replace(/[\u30a1-\u30f6]/g, (m) =>
+      String.fromCharCode(m.charCodeAt(0) - 0x60)
+    );
+  
+  return kanaToHira(text.toLowerCase());
+}
+
 // 相対時間を計算
 function getRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -180,10 +191,10 @@ export default function HomeScreen() {
         const hasMatchingTag = Array.from(selectedTags).some((tag) => postTags.includes(tag));
         if (!hasMatchingTag) return false;
       }
-      // テキスト検索
-      const q = query.trim().toLowerCase();
+      // テキスト検索（表記ゆれ対応）
+      const q = normalizeText(query.trim());
       if (q) {
-        const hay = `${p.title ?? ''} ${p.description ?? ''}`.toLowerCase();
+        const hay = normalizeText(`${p.title ?? ''} ${p.description ?? ''}`);
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -417,9 +428,6 @@ export default function HomeScreen() {
         isSaving={savingIds.has(item.id)}
         onToggleSave={handleToggleSave}
         cookingTimeMin={item.cooking_time_min}
-        calories={item.calories}
-        saltG={item.salt_g}
-        showOnlyTime={true}
         onClick={() => {
           router.push(`/posts/${item.id}` as any);
         }}

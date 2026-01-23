@@ -14,6 +14,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { savePendingRecipe, supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -242,6 +243,39 @@ export default function ComposeScreen() {
 
   // FlatListのref
   const flatListRef = React.useRef<FlatList>(null);
+  
+  // LocalStorage保存の共通関数
+  const saveToStorage = React.useCallback(async () => {
+    if (messages.length <= 1) return; // 初期メッセージのみの場合は保存しない
+    
+    try {
+      const storageData = JSON.stringify({
+        messages,
+        timestamp: Date.now(),
+        nutrition: selectedMenuNutritionRef.current,
+        pendingNavigation: pendingNavigationRef.current,
+      });
+      if (Platform.OS === 'web') {
+        localStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
+      } else {
+        await AsyncStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
+      }
+    } catch (e) {
+      console.error('Failed to save to storage:', e);
+    }
+  }, [messages]);
+  
+  // 画面から離れる時にも保存
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // 画面を離れる時に保存
+        if (messages.length > 1) {
+          saveToStorage();
+        }
+      };
+    }, [messages, saveToStorage])
+  );
   
   // 画面読み込み時にLocalStorageから前回のAI提案を復元
   React.useEffect(() => {
@@ -621,21 +655,7 @@ export default function ComposeScreen() {
         setIsDraftComplete(true);
         
         // LocalStorageに保存（次回再表示用）
-        try {
-          const storageData = JSON.stringify({
-            messages: currentMessages,
-            timestamp: Date.now(),
-            nutrition: selectedMenuNutritionRef.current,
-            pendingNavigation: pendingNavigationRef.current,
-          });
-          if (Platform.OS === 'web') {
-            localStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
-          } else {
-            await AsyncStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
-          }
-        } catch (storageError) {
-          console.error('Failed to save to storage:', storageError);
-        }
+        await saveToStorage();
       } else {
         // エラーメッセージを追加
         setMessages((prev) => [

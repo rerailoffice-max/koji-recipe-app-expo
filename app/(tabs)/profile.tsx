@@ -36,15 +36,36 @@ const FILTER_TABS: { id: Exclude<FilterTab, 'all'>; label: string; icon: string 
   { id: 'drafts', label: '下書き', icon: 'square.and.pencil' },
 ];
 
-// ひらがな・カタカナを統一する関数
+// 漢字→ひらがな変換マップ
+const KANJI_TO_HIRAGANA: Record<string, string> = {
+  '卵': 'たまご',
+  '玉子': 'たまご',
+  '麹': 'こうじ',
+  '糀': 'こうじ',
+  '鶏': 'とり',
+  '豚': 'ぶた',
+  '牛': 'うし',
+  '魚': 'さかな',
+  '野菜': 'やさい',
+  '肉': 'にく',
+};
+
+// ひらがな・カタカナ・漢字を統一する関数
 function normalizeText(text: string): string {
+  let normalized = text;
+  
+  // 漢字→ひらがな変換
+  Object.entries(KANJI_TO_HIRAGANA).forEach(([kanji, hiragana]) => {
+    normalized = normalized.replace(new RegExp(kanji, 'g'), hiragana);
+  });
+  
   // カタカナ→ひらがな変換
   const kanaToHira = (str: string) =>
     str.replace(/[\u30a1-\u30f6]/g, (m) =>
       String.fromCharCode(m.charCodeAt(0) - 0x60)
     );
   
-  return kanaToHira(text.toLowerCase());
+  return kanaToHira(normalized.toLowerCase());
 }
 
 export default function MyRecipesScreen() {

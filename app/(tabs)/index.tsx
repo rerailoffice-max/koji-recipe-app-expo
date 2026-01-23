@@ -51,15 +51,36 @@ const TABS = [
   { id: 'popular', label: '人気' },
 ];
 
+// 漢字→ひらがな変換マップ
+const KANJI_TO_HIRAGANA: Record<string, string> = {
+  '卵': 'たまご',
+  '玉子': 'たまご',
+  '麹': 'こうじ',
+  '糀': 'こうじ',
+  '鶏': 'とり',
+  '豚': 'ぶた',
+  '牛': 'うし',
+  '魚': 'さかな',
+  '野菜': 'やさい',
+  '肉': 'にく',
+};
+
 // ひらがな・カタカナ・漢字を統一する関数
 function normalizeText(text: string): string {
+  let normalized = text;
+  
+  // 漢字→ひらがな変換
+  Object.entries(KANJI_TO_HIRAGANA).forEach(([kanji, hiragana]) => {
+    normalized = normalized.replace(new RegExp(kanji, 'g'), hiragana);
+  });
+  
   // カタカナ→ひらがな変換
   const kanaToHira = (str: string) =>
     str.replace(/[\u30a1-\u30f6]/g, (m) =>
       String.fromCharCode(m.charCodeAt(0) - 0x60)
     );
   
-  return kanaToHira(text.toLowerCase());
+  return kanaToHira(normalized.toLowerCase());
 }
 
 // 相対時間を計算
@@ -428,6 +449,7 @@ export default function HomeScreen() {
         isSaving={savingIds.has(item.id)}
         onToggleSave={handleToggleSave}
         cookingTimeMin={item.cooking_time_min}
+        difficulty={item.difficulty}
         onClick={() => {
           router.push(`/posts/${item.id}` as any);
         }}

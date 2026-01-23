@@ -28,6 +28,7 @@ interface CardPostProps {
   onClick?: () => void;
   // 栄養情報
   cookingTimeMin?: number | null;
+  difficulty?: string | null;
 }
 
 // 麹タイプの表示名変換
@@ -59,6 +60,7 @@ export function CardPost({
   onToggleSave,
   onClick,
   cookingTimeMin,
+  difficulty,
 }: CardPostProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -105,19 +107,16 @@ export function CardPost({
             </Text>
           )}
 
-          {/* タグと調理時間を横並び */}
+          {/* タグと調理時間・難易度を横並び */}
           <View style={styles.tagAndTimeRow}>
-            {/* タグ */}
+            {/* 麹タグ */}
             <ChipTag type="koji" label={toKojiDisplayName(kojiType)} />
             
+            {/* 難易度 */}
+            {difficulty && <ChipTag type="difficulty" label={difficulty} />}
+            
             {/* 調理時間 */}
-            {cookingTimeMin && (
-              <View style={[styles.nutritionBadge, { backgroundColor: colors.muted }]}>
-                <Text style={[styles.nutritionBadgeText, { color: colors.mutedForeground }]}>
-                  ⏱{cookingTimeMin}分
-                </Text>
-              </View>
-            )}
+            {cookingTimeMin && <ChipTag type="time" label={`⏱${cookingTimeMin}分`} />}
           </View>
 
           {/* スペーサー */}

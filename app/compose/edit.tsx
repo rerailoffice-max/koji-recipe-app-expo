@@ -49,8 +49,6 @@ interface FormData {
   steps: Step[];
   image_url: string | null;
   // 栄養情報
-  salt_g: string;
-  calories: string;
   cooking_time_min: string;
   // タグ
   tags: string[];
@@ -231,8 +229,6 @@ export default function RecipeEditScreen() {
     image_base64?: string;
     image_url?: string;
     // 栄養情報
-    calories?: string;
-    salt_g?: string;
     cooking_time_min?: string;
     // タグ・コツ
     tags?: string;
@@ -251,8 +247,6 @@ export default function RecipeEditScreen() {
     ingredients: [{ name: '', amount: '' }],
     steps: [{ order: 1, description: '' }],
     image_url: null,
-    salt_g: '',
-    calories: '',
     cooking_time_min: '',
     tags: [],
     tips: '',
@@ -343,8 +337,6 @@ export default function RecipeEditScreen() {
         steps: initialSteps.length > 0 ? initialSteps : [{ order: 1, description: '' }],
         image_url: params.image_url || null,
         // 栄養情報をパラメータから設定
-        salt_g: params.salt_g || '',
-        calories: params.calories || '',
         cooking_time_min: params.cooking_time_min || '',
         // タグ・コツをパラメータから設定
         tags: initialTags,
@@ -378,7 +370,7 @@ export default function RecipeEditScreen() {
     if (draftIdParam) {
       setDraftId(draftIdParam);
     }
-  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url, params.calories, params.salt_g, params.cooking_time_min, params.tags, params.tips, params.servings]);
+  }, [params.title, params.ingredients, params.steps, params.draftId, params.description, params.koji_type, params.difficulty, params.image_base64, params.image_url, params.cooking_time_min, params.tags, params.tips, params.servings]);
 
   const { takePhoto, pickFromLibrary } = useImagePicker();
 
@@ -588,8 +580,6 @@ export default function RecipeEditScreen() {
         is_public: false,
         is_ai_generated: false,
         // 栄養情報
-        salt_g: cleanData.salt_g ? parseFloat(cleanData.salt_g) : null,
-        calories: cleanData.calories ? parseInt(cleanData.calories, 10) : null,
         cooking_time_min: cleanData.cooking_time_min ? parseInt(cleanData.cooking_time_min, 10) : null,
         tags: cleanData.tags.length > 0 ? cleanData.tags : null,
       };
@@ -753,8 +743,6 @@ export default function RecipeEditScreen() {
         is_public: true,
         is_ai_generated: false,
         // 栄養情報
-        salt_g: cleanData.salt_g ? parseFloat(cleanData.salt_g) : null,
-        calories: cleanData.calories ? parseInt(cleanData.calories, 10) : null,
         cooking_time_min: cleanData.cooking_time_min ? parseInt(cleanData.cooking_time_min, 10) : null,
         tags: cleanData.tags.length > 0 ? cleanData.tags : null,
       };
@@ -912,12 +900,12 @@ export default function RecipeEditScreen() {
               onChange={(value) => setFormData((prev) => ({ ...prev, difficulty: value }))}
             />
 
-            {/* 栄養情報・調理時間（2列レイアウト） */}
+            {/* 栄養情報・調理時間 */}
             <View style={styles.fieldContainer}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>栄養情報（目安・任意）</Text>
-              {/* 1行目: 調理時間 / カロリー */}
+              {/* 調理時間 */}
               <View style={styles.nutritionRow}>
-                <View style={styles.nutritionFieldHalf}>
+                <View style={styles.nutritionFieldFull}>
                   <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>⏱ 調理時間</Text>
                   <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <TextInput
@@ -929,37 +917,6 @@ export default function RecipeEditScreen() {
                       style={[styles.nutritionInput, { color: colors.text }]}
                     />
                     <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>分</Text>
-                  </View>
-                </View>
-                <View style={styles.nutritionFieldHalf}>
-                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🔥 カロリー</Text>
-                  <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <TextInput
-                      value={formData.calories}
-                      onChangeText={(text) => setFormData((prev) => ({ ...prev, calories: text.replace(/[^0-9]/g, '') }))}
-                      placeholder="350"
-                      placeholderTextColor={colors.mutedForeground}
-                      keyboardType="numeric"
-                      style={[styles.nutritionInput, { color: colors.text }]}
-                    />
-                    <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>kcal</Text>
-                  </View>
-                </View>
-              </View>
-              {/* 2行目: 塩分（フルwidth） */}
-              <View style={[styles.nutritionRow, { marginTop: Spacing.sm }]}>
-                <View style={styles.nutritionFieldFull}>
-                  <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>🧂 塩分</Text>
-                  <View style={[styles.nutritionInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <TextInput
-                      value={formData.salt_g}
-                      onChangeText={(text) => setFormData((prev) => ({ ...prev, salt_g: text.replace(/[^0-9.]/g, '') }))}
-                      placeholder="2.5"
-                      placeholderTextColor={colors.mutedForeground}
-                      keyboardType="decimal-pad"
-                      style={[styles.nutritionInput, { color: colors.text }]}
-                    />
-                    <Text style={[styles.nutritionUnit, { color: colors.mutedForeground }]}>g</Text>
                   </View>
                 </View>
               </View>

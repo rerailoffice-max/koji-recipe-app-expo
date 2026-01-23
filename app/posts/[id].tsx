@@ -417,21 +417,11 @@ export default function PostDetailScreen() {
           <View style={styles.tags}>
             <ChipTag type="koji" label={toKojiDisplayName(post.koji_type)} />
             {post.difficulty && <ChipTag type="difficulty" label={post.difficulty} />}
+            {post.cooking_time_min && <ChipTag type="time" label={`⏱${post.cooking_time_min}分`} />}
             {post.tags && post.tags.length > 0 && post.tags.map((tag, idx) => (
               <ChipTag key={idx} type="tag" label={tag} />
             ))}
           </View>
-
-          {/* 栄養情報（調理時間のみ） */}
-          {post.cooking_time_min && (
-            <View style={[styles.nutritionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionIcon}>⏱</Text>
-                <Text style={[styles.nutritionValue, { color: colors.text }]}>{post.cooking_time_min}分</Text>
-                <Text style={[styles.nutritionLabel, { color: colors.mutedForeground }]}>調理時間</Text>
-              </View>
-            </View>
-          )}
 
           {/* 投稿者情報 */}
           <View style={styles.authorRow}>

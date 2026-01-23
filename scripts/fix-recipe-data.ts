@@ -2,23 +2,27 @@
  * レシピデータ一括修正スクリプト
  * 
  * 実行方法:
- * npx ts-node scripts/fix-recipe-data.ts
+ * npx tsx scripts/fix-recipe-data.ts
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+
+// .env.localを読み込む
+config({ path: '.env.local' });
 
 // 環境変数から取得（実行時に設定）
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qsawvvmmmypihunojheo.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xvzwvwyjyiykdqvpxppf.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 
 if (!SUPABASE_SERVICE_KEY) {
   console.error('Error: SUPABASE_SERVICE_KEY is required');
   process.exit(1);
 }
 
-if (!GOOGLE_API_KEY) {
-  console.error('Error: GOOGLE_API_KEY is required');
+if (!GEMINI_API_KEY) {
+  console.error('Error: GEMINI_API_KEY is required');
   process.exit(1);
 }
 
@@ -46,7 +50,6 @@ interface GeneratedContent {
 function isIngredientList(description: string | null): boolean {
   if (!description) return true;
   
-  // カンマ区切りの材料リストっぽいパターン
   const patterns = [
     /^[ぁ-んァ-ヶー\u4e00-\u9faf、,]+$/,  // 材料名のみ（カンマ区切り）
     /^材料[:：]/,                          // "材料:" で始まる
@@ -57,79 +60,163 @@ function isIngredientList(description: string | null): boolean {
 }
 
 /**
+ * 説明が一般的すぎるかチェック
+ */
+function isGenericDescription(description: string | null): boolean {
+  if (!description) return true;
+  
+  const genericPatterns = [
+    '麹調味料を使った美味しい料理です',
+    '簡単に作れて栄養も豊富です',
+  ];
+  
+  return genericPatterns.some(pattern => description.includes(pattern));
+}
+
+/**
+ * コツが安直かチェック
+ */
+function isGenericTips(tips: string | null): boolean {
+  if (!tips) return true;
+  
+  return tips === '麹調味料の量はお好みで調整してください。' ||
+         tips.length < 20;
+}
+
+/**
  * Google Gemini APIを使用して説明・コツ・調理時間を生成
  */
 async function generateRecipeContent(post: RecipePost): Promise<GeneratedContent> {
-  const prompt = `以下のレシピ情報から、適切な説明、コツ・ポイント、調理時間を生成してください。
+  // 材料と手順をわかりやすく整形
+  const ingredientsList = (post.ingredients || [])
+    .map((ing: any) => `${ing.name}: ${ing.amount}`)
+    .join(', ');
+  
+  const stepsList = (post.steps || [])
+    .map((step: any, index: number) => `${index + 1}. ${step.description}`)
+    .join('\n');
 
-タイトル: ${post.title}
-材料: ${JSON.stringify(post.ingredients || [])}
-作り方: ${JSON.stringify(post.steps || [])}
+  const prompt = `あなたはプロの料理研究家です。以下のレシピを分析して、読者の食欲をそそる説明と実用的なコツを生成してください。
 
-出力は必ずJSON形式で、以下の形式に従ってください:
+【レシピタイトル】
+${post.title}
+
+【材料】
+${ingredientsList}
+
+【作り方】
+${stepsList}
+
+【要件】
+1. 説明（50-100文字）:
+   - 料理の魅力（味、食感、見た目）を具体的に表現してください
+   - 例: 「外はカリッと、中はほくほく」のような食感の対比
+   - 例: 「野菜の甘みが溶け込んだ」のような味の特徴
+   - 例: 「ジューシーな〜と柔らかな〜が絡み合う」のような組み合わせの魅力
+   - 絶対にNG: 材料の列挙、「麹調味料を使った」などの一般的な表現
+   
+2. コツ（30-80文字）:
+   - このレシピ特有の具体的なテクニックや注意点を書いてください
+   - 例: 「1cm厚さに切る」「弱火でじっくり3分」など具体的な数値
+   - 例: 「中火で両面を3分ずつ焼くことで」のように方法と効果を明示
+   - 例: 「大きめに切り、弱火でじっくり煮込むことでトロトロの食感に」
+   - 絶対にNG: 「お好みで」「適量」などの曖昧な表現
+   
+3. 調理時間: 実際の調理手順を考慮して7-15分で現実的な時間を見積もってください
+
+【出力形式】
+必ずJSON形式のみで出力してください。他の文章は含めないでください。
 {
-  "description": "料理の簡潔な説明（2-3文、50-100文字）。料理の特徴や味わいを説明し、材料を列挙しないこと。",
-  "tips": "調理のコツやポイント（1-2文、30-80文字）。具体的な調理テクニックや注意点を記載。",
-  "cookingTimeMin": 7から15の範囲の整数（実際の調理時間を短めに見積もる）
-}
-
-注意事項:
-- descriptionには材料を列挙せず、料理の特徴や美味しさを説明してください
-- tipsには具体的で実用的な調理のコツを記載してください
-- cookingTimeMinは実際に作れる現実的な時間にしてください（7-15分）
-- 必ずJSON形式で出力してください`;
+  "description": "具体的で魅力的な説明",
+  "tips": "実用的で具体的なコツ",
+  "cookingTimeMin": 数値
+}`;
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 500,
+            temperature: 0.8,
+            maxOutputTokens: 2048,
+            topP: 0.95,
           },
         }),
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Gemini API Response:', errorText);
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    const text = data.candidates[0]?.content?.parts[0]?.text || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    // JSONを抽出（```json ... ``` の場合も対応）
-    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
+    if (!text) {
+      throw new Error('No text in Gemini response');
     }
     
-    const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+    // JSONを抽出（```json ... ``` の場合も対応）
+    let jsonText = text.trim();
+    
+    // コードブロックを除去
+    if (jsonText.startsWith('```json')) {
+      const match = jsonText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonText = match[1];
+      }
+    } else if (jsonText.startsWith('```')) {
+      const match = jsonText.match(/```\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonText = match[1];
+      }
+    }
+    
+    // 最初と最後の {} を探す
+    const firstBrace = jsonText.indexOf('{');
+    const lastBrace = jsonText.lastIndexOf('}');
+    
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error('No JSON object found in response');
+    }
+    
+    jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('  JSON parse error:', parseError);
+      console.error('  Failed JSON text:', jsonText);
+      throw new Error(`Failed to parse JSON: ${parseError}`);
+    }
+    
+    if (!parsed.description || !parsed.tips) {
+      throw new Error('Missing required fields in response');
+    }
     
     return {
       description: parsed.description || '',
       tips: parsed.tips || '',
       cookingTimeMin: Math.min(15, Math.max(7, parseInt(parsed.cookingTimeMin) || 10)),
     };
-  } catch (error) {
-    console.error('Error generating content:', error);
-    // フォールバック値を返す
-    return {
-      description: `${post.title}は、麹調味料を使った美味しい料理です。簡単に作れて栄養も豊富です。`,
-      tips: '麹調味料の量はお好みで調整してください。',
-      cookingTimeMin: 10,
-    };
+  } catch (error: any) {
+    console.error('  ❌ AI生成エラー:', error.message);
+    // エラーの場合はnullを返し、スキップする
+    throw error;
   }
 }
 
 /**
  * 全レシピを修正
  */
-async function fixAllRecipes() {
+async function fixAllRecipes(testMode = false, forceRegenerate = false) {
   console.log('🔍 レシピを取得中...');
   
   // 全レシピを取得
@@ -148,19 +235,32 @@ async function fixAllRecipes() {
     return;
   }
 
-  console.log(`📚 ${posts.length}件のレシピを処理します\n`);
+  // テストモードの場合は最初の2件のみ
+  const recipesToProcess = testMode ? posts.slice(0, 2) : posts;
+  
+  console.log(`📚 ${recipesToProcess.length}件のレシピを処理します${testMode ? ' (テストモード)' : ''}${forceRegenerate ? ' (強制再生成)' : ''}\n`);
 
   let updated = 0;
   let skipped = 0;
+  let failed = 0;
 
-  for (let i = 0; i < posts.length; i++) {
-    const post = posts[i] as RecipePost;
-    console.log(`[${i + 1}/${posts.length}] ${post.title}`);
+  for (let i = 0; i < recipesToProcess.length; i++) {
+    const post = recipesToProcess[i] as RecipePost;
+    console.log(`[${i + 1}/${recipesToProcess.length}] ${post.title}`);
 
-    // 修正が必要かチェック
-    const needsDescriptionFix = isIngredientList(post.description);
-    const needsTips = !post.tips || post.tips.trim().length === 0;
-    const needsTimeAdjustment = !post.cooking_time_min || post.cooking_time_min > 20;
+    // 修正が必要かチェック（強制再生成の場合は常に修正）
+    const needsDescriptionFix = forceRegenerate || 
+      isIngredientList(post.description) || 
+      isGenericDescription(post.description) ||
+      !post.description ||
+      post.description.length < 30;
+    
+    const needsTips = forceRegenerate || 
+      isGenericTips(post.tips);
+    
+    const needsTimeAdjustment = forceRegenerate || 
+      !post.cooking_time_min || 
+      post.cooking_time_min > 20;
 
     if (!needsDescriptionFix && !needsTips && !needsTimeAdjustment) {
       console.log('  ✓ スキップ（修正不要）\n');
@@ -196,29 +296,44 @@ async function fixAllRecipes() {
         .eq('id', post.id);
 
       if (updateError) {
-        console.log(`  ❌ 更新失敗: ${updateError.message}`);
+        console.log(`  ❌ 更新失敗: ${updateError.message}\n`);
+        failed++;
       } else {
         console.log(`  ✅ 更新完了`);
-        console.log(`     説明: ${updateData.description || '変更なし'}`);
-        console.log(`     コツ: ${updateData.tips || '変更なし'}`);
-        console.log(`     時間: ${updateData.cooking_time_min || '変更なし'}分\n`);
+        if (updateData.description) console.log(`     説明: ${updateData.description}`);
+        if (updateData.tips) console.log(`     コツ: ${updateData.tips}`);
+        if (updateData.cooking_time_min) console.log(`     時間: ${updateData.cooking_time_min}分`);
+        console.log('');
         updated++;
       }
 
-      // レート制限対策: 1秒待機
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      console.log(`  ❌ エラー: ${error}\n`);
+      // レート制限対策: 2秒待機（より余裕を持たせる）
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error: any) {
+      console.log(`  ❌ エラー: ${error.message}\n`);
+      failed++;
     }
   }
 
   console.log('\n📊 処理完了');
   console.log(`   更新: ${updated}件`);
   console.log(`   スキップ: ${skipped}件`);
+  console.log(`   失敗: ${failed}件`);
 }
 
 // メイン実行
-fixAllRecipes()
+const testMode = process.argv.includes('--test');
+const forceRegenerate = process.argv.includes('--force');
+
+if (testMode) {
+  console.log('🧪 テストモードで実行します（最初の2件のみ処理）\n');
+}
+
+if (forceRegenerate) {
+  console.log('🔄 強制再生成モードで実行します（すべてのレシピを再生成）\n');
+}
+
+fixAllRecipes(testMode, forceRegenerate)
   .then(() => {
     console.log('\n✨ すべての処理が完了しました');
     process.exit(0);

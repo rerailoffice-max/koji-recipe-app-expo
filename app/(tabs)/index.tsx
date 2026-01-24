@@ -129,51 +129,63 @@ export default function HomeScreen() {
   // 初期データを並列で取得（高速化）
   React.useEffect(() => {
     const loadInitialData = async () => {
-      // ユーザー情報とタグを並列で取得
-      const [userResult, tagsResult] = await Promise.all([
-        supabase.auth.getUser(),
-        fetch(`${API_BASE_URL}/api/tags`).then(r => r.ok ? r.json() : null).catch(() => null),
-      ]);
-      
-      // ユーザー情報を設定
-      const user = userResult.data?.user;
-      if (user) {
-        setCurrentUserId(user.id);
-        // 保存済みIDを取得
-        const { data: likes } = await supabase
-          .from('likes')
-          .select('post_id')
-          .eq('user_id', user.id);
-        if (likes) {
-          setSavedIds(new Set(likes.map((l) => l.post_id)));
+      try {
+        // ユーザー情報とタグを並列で取得
+        const [userResult, tagsResult] = await Promise.all([
+          supabase.auth.getUser().catch(() => ({ data: { user: null } })),
+          fetch(`${API_BASE_URL}/api/tags`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        
+        // ユーザー情報を設定
+        const user = userResult.data?.user;
+        if (user) {
+          setCurrentUserId(user.id);
+          // 保存済みIDを取得
+          try {
+            const { data: likes } = await supabase
+              .from('likes')
+              .select('post_id')
+              .eq('user_id', user.id);
+            if (likes) {
+              setSavedIds(new Set(likes.map((l) => l.post_id)));
+            }
+          } catch (e) {
+            console.error('Failed to fetch likes:', e);
+          }
+        } else {
+          setCurrentUserId(null);
+          setSavedIds(new Set());
         }
-      } else {
-        setCurrentUserId(null);
-        setSavedIds(new Set());
-      }
-      
-      // タグを設定
-      if (tagsResult?.tags && Array.isArray(tagsResult.tags)) {
-        setTagList(tagsResult.tags);
+        
+        // タグを設定
+        if (tagsResult?.tags && Array.isArray(tagsResult.tags)) {
+          setTagList(tagsResult.tags);
+        }
+      } catch (e) {
+        console.error('Failed to load initial data:', e);
       }
     };
     
     loadInitialData();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
-      const user = session?.user;
-      if (user) {
-        setCurrentUserId(user.id);
-        const { data: likes } = await supabase
-          .from('likes')
-          .select('post_id')
-          .eq('user_id', user.id);
-        if (likes) {
-          setSavedIds(new Set(likes.map((l) => l.post_id)));
+      try {
+        const user = session?.user;
+        if (user) {
+          setCurrentUserId(user.id);
+          const { data: likes } = await supabase
+            .from('likes')
+            .select('post_id')
+            .eq('user_id', user.id);
+          if (likes) {
+            setSavedIds(new Set(likes.map((l) => l.post_id)));
+          }
+        } else {
+          setCurrentUserId(null);
+          setSavedIds(new Set());
         }
-      } else {
-        setCurrentUserId(null);
-        setSavedIds(new Set());
+      } catch (e) {
+        console.error('Auth state change error:', e);
       }
     });
     

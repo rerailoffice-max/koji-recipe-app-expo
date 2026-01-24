@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, type ImageSourcePropType } from 'react-native';
+import { View, Text, Image, StyleSheet, Pressable, type ImageSourcePropType } from 'react-native';
 import { Colors, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useFontSize, scaledFontSize } from '@/hooks/use-font-size';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export interface ChatAttachment {
   kind: 'image';
@@ -12,12 +13,18 @@ export interface ChatAttachment {
   name?: string;
 }
 
+export type FeedbackType = 'like' | 'dislike' | null;
+
 export interface ChatMessageBubbleProps {
   role: 'ai' | 'user';
   text: string;
   /** AIアバター。URL文字列 or require() の画像を許容 */
   aiAvatarSrc?: string | ImageSourcePropType | null;
   attachments?: ChatAttachment[];
+  /** フィードバック機能（AIメッセージのみ） */
+  messageId?: string;
+  feedbackStatus?: FeedbackType;
+  onFeedback?: (messageId: string, type: FeedbackType) => void;
 }
 
 export function ChatMessageBubble({
@@ -25,11 +32,24 @@ export function ChatMessageBubble({
   text,
   aiAvatarSrc,
   attachments,
+  messageId,
+  feedbackStatus,
+  onFeedback,
 }: ChatMessageBubbleProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { fontScale } = useFontSize();
   const isAi = role === 'ai';
+
+  const handleFeedback = (type: 'like' | 'dislike') => {
+    if (!messageId || !onFeedback) return;
+    // 同じボタンを再度押したら取り消し
+    if (feedbackStatus === type) {
+      onFeedback(messageId, null);
+    } else {
+      onFeedback(messageId, type);
+    }
+  };
 
   return (
     <View style={[styles.container, isAi ? styles.aiContainer : styles.userContainer]}>
@@ -50,41 +70,75 @@ export function ChatMessageBubble({
         </View>
       )}
 
-      {/* 吹き出し */}
-      <View
-        style={[
-          styles.bubble,
-          isAi
-            ? [styles.aiBubble, { backgroundColor: colors.surface, borderColor: colors.border }]
-            : [styles.userBubble, { backgroundColor: colors.primary }],
-        ]}
-      >
-        {/* 添付画像（あれば） */}
-        {attachments && attachments.length > 0 && (
-          <View style={styles.attachments}>
-            {attachments.map((att, idx) => (
-              <Image
-                key={idx}
-                source={{ uri: att.dataUrl }}
-                style={styles.attachmentImage}
-                resizeMode="cover"
-              />
-            ))}
-          </View>
-        )}
-
-        {/* テキスト */}
-        <Text
+      <View style={styles.bubbleContainer}>
+        {/* 吹き出し */}
+        <View
           style={[
-            styles.text,
-            { fontSize: scaledFontSize(15, fontScale), lineHeight: scaledFontSize(22, fontScale) },
+            styles.bubble,
             isAi
-              ? { color: colors.text }
-              : { color: colors.primaryForeground },
+              ? [styles.aiBubble, { backgroundColor: colors.surface, borderColor: colors.border }]
+              : [styles.userBubble, { backgroundColor: colors.primary }],
           ]}
         >
-          {text}
-        </Text>
+          {/* 添付画像（あれば） */}
+          {attachments && attachments.length > 0 && (
+            <View style={styles.attachments}>
+              {attachments.map((att, idx) => (
+                <Image
+                  key={idx}
+                  source={{ uri: att.dataUrl }}
+                  style={styles.attachmentImage}
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          )}
+
+          {/* テキスト */}
+          <Text
+            style={[
+              styles.text,
+              { fontSize: scaledFontSize(15, fontScale), lineHeight: scaledFontSize(22, fontScale) },
+              isAi
+                ? { color: colors.text }
+                : { color: colors.primaryForeground },
+            ]}
+          >
+            {text}
+          </Text>
+        </View>
+
+        {/* フィードバックボタン（AIメッセージのみ） */}
+        {isAi && onFeedback && messageId && (
+          <View style={styles.feedbackRow}>
+            <Pressable
+              onPress={() => handleFeedback('like')}
+              style={({ pressed }) => [
+                styles.feedbackButton,
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <IconSymbol
+                name={feedbackStatus === 'like' ? 'hand.thumbsup.fill' : 'hand.thumbsup'}
+                size={18}
+                color={feedbackStatus === 'like' ? colors.primary : colors.mutedForeground}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => handleFeedback('dislike')}
+              style={({ pressed }) => [
+                styles.feedbackButton,
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <IconSymbol
+                name={feedbackStatus === 'dislike' ? 'hand.thumbsdown.fill' : 'hand.thumbsdown'}
+                size={18}
+                color={feedbackStatus === 'dislike' ? '#E53935' : colors.mutedForeground}
+              />
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -124,16 +178,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  bubbleContainer: {
+    flexShrink: 1,
+    maxWidth: '85%',
+  },
   bubble: {
     paddingVertical: Spacing.sm + 2,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.xl,
-    flexShrink: 1,
   },
   aiBubble: {
     borderWidth: 1,
     borderTopLeftRadius: BorderRadius.sm,
-    maxWidth: '85%',
     alignSelf: 'flex-start',
   },
   userBubble: {
@@ -153,6 +209,15 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+    paddingLeft: Spacing.xs,
+  },
+  feedbackButton: {
+    padding: Spacing.xs,
   },
 });
 

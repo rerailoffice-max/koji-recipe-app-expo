@@ -4,6 +4,7 @@ import {
     QuickReplyChips,
     type ChatAttachment,
     type QuickReply,
+    type FeedbackType,
 } from '@/components/chat';
 import { AppBar } from '@/components/ui/AppBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -14,7 +15,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useImagePicker } from '@/hooks/use-image-picker';
 import { savePendingRecipe, supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -28,6 +28,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,8 +36,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // API Base URL - 本番用
 const API_BASE_URL = 'https://api.gochisokoji.com';
 
-// LocalStorageキー
-const LAST_AI_RECIPE_KEY = 'lastAiRecipeProposal';
+// LocalStorageキー（下書き履歴用）
+const DRAFT_HISTORY_KEY = 'draftHistory';
+
+// 下書き履歴の型
+interface DraftHistory {
+  id: string;
+  title: string;
+  navigationUrl: string;
+  createdAt: number;
+  messages: ChatMessage[]; // チャット履歴を追加
+}
 
 // チャットボット（GOCHISOシェフ）アバター：アプリ内画像を使用（キャッシュ/外部依存を回避）
 const AI_AVATAR_SOURCE = require('../../assets/images/icon.png');
@@ -185,6 +195,10 @@ export default function ComposeScreen() {
   const router = useRouter();
   const { showToast } = useToast();
 
+  // 下書き履歴の状態管理
+  const [draftHistory, setDraftHistory] = React.useState<DraftHistory[]>([]);
+  const [showDraftHistoryModal, setShowDraftHistoryModal] = React.useState(false);
+
   // 会話が開始されたかどうか
   const [hasStarted, setHasStarted] = React.useState(false);
   
@@ -241,80 +255,54 @@ export default function ComposeScreen() {
   const [pendingAttachment, setPendingAttachment] = React.useState<ChatAttachment | null>(null);
   const [showAttachSheet, setShowAttachSheet] = React.useState(false);
 
+  // フィードバック状態（メッセージIDごとのフィードバック）
+  const [feedbackMap, setFeedbackMap] = React.useState<Record<string, FeedbackType>>({});
+
+  // フィードバック詳細モーダル用
+  const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
+  const [pendingFeedback, setPendingFeedback] = React.useState<{
+    messageId: string;
+    messageText: string;
+    type: 'like' | 'dislike';
+  } | null>(null);
+  const [selectedReasons, setSelectedReasons] = React.useState<string[]>([]);
+  const [feedbackComment, setFeedbackComment] = React.useState('');
+
   // FlatListのref
   const flatListRef = React.useRef<FlatList>(null);
   
-  // LocalStorage保存の共通関数
-  const saveToStorage = React.useCallback(async () => {
-    if (messages.length <= 1) return; // 初期メッセージのみの場合は保存しない
-    
-    try {
-      const storageData = JSON.stringify({
-        messages,
-        timestamp: Date.now(),
-        nutrition: selectedMenuNutritionRef.current,
-        pendingNavigation: pendingNavigationRef.current,
-      });
-      if (Platform.OS === 'web') {
-        localStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
-      } else {
-        await AsyncStorage.setItem(LAST_AI_RECIPE_KEY, storageData);
-      }
-    } catch (e) {
-      console.error('Failed to save to storage:', e);
-    }
-  }, [messages]);
-  
-  // 画面から離れる時にも保存
-  useFocusEffect(
-    React.useCallback(() => {
-      return () => {
-        // 画面を離れる時に保存
-        if (messages.length > 1) {
-          saveToStorage();
-        }
-      };
-    }, [messages, saveToStorage])
-  );
-  
-  // 画面読み込み時にLocalStorageから前回のAI提案を復元
+  // 画面読み込み時に下書き履歴を読み込む
   React.useEffect(() => {
-    const loadLastRecipe = async () => {
+    const loadDraftHistory = async () => {
       try {
         let stored: string | null = null;
         if (Platform.OS === 'web') {
-          stored = localStorage.getItem(LAST_AI_RECIPE_KEY);
+          stored = localStorage.getItem(DRAFT_HISTORY_KEY);
         } else {
-          stored = await AsyncStorage.getItem(LAST_AI_RECIPE_KEY);
+          stored = await AsyncStorage.getItem(DRAFT_HISTORY_KEY);
         }
         
         if (stored) {
-          const data = JSON.parse(stored);
-          // 24時間以内のものだけ復元
-          if (Date.now() - data.timestamp < 86400000) {
-            setMessages(data.messages || []);
-            if (data.nutrition) {
-              selectedMenuNutritionRef.current = data.nutrition;
-            }
-            if (data.pendingNavigation) {
-              pendingNavigationRef.current = data.pendingNavigation;
-            }
-            setHasStarted(true); // 会話開始済みとマーク
-          } else {
-            // 古いデータは削除
+          const history: DraftHistory[] = JSON.parse(stored);
+          // 24時間以内のものだけ保持
+          const filtered = history.filter(d => Date.now() - d.createdAt < 86400000);
+          setDraftHistory(filtered);
+          
+          // 古いものを削除したらLocalStorageも更新
+          if (filtered.length !== history.length) {
             if (Platform.OS === 'web') {
-              localStorage.removeItem(LAST_AI_RECIPE_KEY);
+              localStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(filtered));
             } else {
-              await AsyncStorage.removeItem(LAST_AI_RECIPE_KEY);
+              await AsyncStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(filtered));
             }
           }
         }
       } catch (e) {
-        console.error('Failed to load last recipe:', e);
+        console.error('Failed to load draft history:', e);
       }
     };
     
-    loadLastRecipe();
+    loadDraftHistory();
   }, []);
   
   // ページ読み込み時に全カテゴリのメニュー案を事前生成（allCategories: true で1回のAPI呼び出し）
@@ -378,6 +366,40 @@ export default function ComposeScreen() {
       }, 100);
     }
   }, [messages.length]);
+
+  // 下書き削除処理
+  const handleDeleteDraft = async (draftId: string) => {
+    const updatedHistory = draftHistory.filter(d => d.id !== draftId);
+    setDraftHistory(updatedHistory);
+    
+    if (Platform.OS === 'web') {
+      localStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(updatedHistory));
+    } else {
+      await AsyncStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(updatedHistory));
+    }
+    
+    if (updatedHistory.length === 0) {
+      setShowDraftHistoryModal(false);
+    }
+    
+    showToast('下書きを削除しました');
+  };
+
+  // 相対時間表示
+  const getRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    
+    if (minutes < 1) return 'たった今';
+    if (minutes < 60) return `${minutes}分前`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}時間前`;
+    
+    const days = Math.floor(hours / 24);
+    return `${days}日前`;
+  };
 
   // 内部送信関数（isQuickRecipeModeを明示的に指定）
   const handleSendInternal = React.useCallback(async (
@@ -652,10 +674,31 @@ export default function ComposeScreen() {
             tags: JSON.stringify(recipe.tags || []),
           },
         };
-        setIsDraftComplete(true);
         
-        // LocalStorageに保存（次回再表示用）
-        await saveToStorage();
+        // 下書き履歴に追加
+        const draftId = Date.now().toString();
+        const newDraft: DraftHistory = {
+          id: draftId,
+          title: recipe.title || '無題のレシピ',
+          navigationUrl: JSON.stringify(pendingNavigationRef.current),
+          createdAt: Date.now(),
+          messages: messages, // チャット履歴を保存
+        };
+        
+        const updatedHistory = [...draftHistory, newDraft];
+        setDraftHistory(updatedHistory);
+        
+        try {
+          if (Platform.OS === 'web') {
+            localStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(updatedHistory));
+          } else {
+            await AsyncStorage.setItem(DRAFT_HISTORY_KEY, JSON.stringify(updatedHistory));
+          }
+        } catch (e) {
+          console.error('Failed to save draft history:', e);
+        }
+        
+        setIsDraftComplete(true);
       } else {
         // エラーメッセージを追加
         setMessages((prev) => [
@@ -931,6 +974,76 @@ export default function ComposeScreen() {
     }
   }, [selectedQuickPrompt]);
 
+  // フィードバックの理由オプション
+  const FEEDBACK_REASONS = {
+    like: ['美味しそう', '簡単', '参考になった', '時短', 'その他'],
+    dislike: ['材料が多い', '時間がかかる', '難しそう', '好みでない', 'その他'],
+  };
+
+  // フィードバック処理（モーダルを表示）
+  const handleFeedback = React.useCallback((messageId: string, type: FeedbackType) => {
+    if (type === null) {
+      // 取り消しの場合はそのまま更新
+      setFeedbackMap(prev => ({
+        ...prev,
+        [messageId]: null,
+      }));
+      return;
+    }
+    
+    // メッセージテキストを取得
+    const message = messages.find(m => m.id === messageId);
+    const messageText = message?.text || '';
+    
+    // モーダルを表示
+    setPendingFeedback({ messageId, messageText, type });
+    setSelectedReasons([]);
+    setFeedbackComment('');
+    setShowFeedbackModal(true);
+  }, [messages]);
+
+  // フィードバック送信処理
+  const handleSubmitFeedback = React.useCallback(async () => {
+    if (!pendingFeedback) return;
+    
+    // UIを即座に更新
+    setFeedbackMap(prev => ({
+      ...prev,
+      [pendingFeedback.messageId]: pendingFeedback.type,
+    }));
+    
+    // Supabaseに保存
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      await supabase.from('ai_feedbacks').insert({
+        user_id: user?.id || null,
+        message_text: pendingFeedback.messageText.substring(0, 1000), // 最大1000文字
+        feedback_type: pendingFeedback.type,
+        reasons: selectedReasons,
+        comment: feedbackComment.trim() || null,
+      });
+    } catch (e) {
+      console.error('Feedback save error:', e);
+    }
+    
+    // モーダルを閉じる
+    setShowFeedbackModal(false);
+    setPendingFeedback(null);
+    setSelectedReasons([]);
+    setFeedbackComment('');
+    showToast({ message: 'フィードバックありがとうございます！', type: 'success' });
+  }, [pendingFeedback, selectedReasons, feedbackComment, showToast]);
+
+  // 理由の選択/解除
+  const toggleReason = React.useCallback((reason: string) => {
+    setSelectedReasons(prev => 
+      prev.includes(reason) 
+        ? prev.filter(r => r !== reason)
+        : [...prev, reason]
+    );
+  }, []);
+
   // 画像ピッカー
   const { takePhoto, pickFromLibrary } = useImagePicker();
 
@@ -956,15 +1069,26 @@ export default function ComposeScreen() {
 
   // レンダーアイテム
   const renderMessage = React.useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <ChatMessageBubble
-        role={item.role}
-        text={item.text}
-        aiAvatarSrc={AI_AVATAR_SOURCE}
-        attachments={item.attachments}
-      />
-    ),
-    []
+    ({ item }: { item: ChatMessage }) => {
+      // 挨拶・ローディング・完了メッセージにはフィードバックを表示しない
+      const isGreeting = item.id === 'ai-hello';
+      const isLoading = item.text.includes('考え中...') || item.text.includes('レシピを考案中...');
+      const isComplete = item.text.includes('下書きを作成しました') || item.text.includes('編集画面に移動します');
+      const showFeedback = item.role === 'ai' && !isGreeting && !isLoading && !isComplete;
+      
+      return (
+        <ChatMessageBubble
+          role={item.role}
+          text={item.text}
+          aiAvatarSrc={AI_AVATAR_SOURCE}
+          attachments={item.attachments}
+          messageId={item.id}
+          feedbackStatus={feedbackMap[item.id]}
+          onFeedback={showFeedback ? handleFeedback : undefined}
+        />
+      );
+    },
+    [feedbackMap, handleFeedback]
   );
 
   const keyExtractor = React.useCallback((item: ChatMessage) => item.id, []);
@@ -986,12 +1110,26 @@ export default function ComposeScreen() {
           </Pressable>
         }
         rightAction={
-          <Pressable
-            onPress={handleSkipToForm}
-            style={styles.appBarButton}
-          >
-            <Text style={[styles.skipText, { color: colors.text }]}>スキップ</Text>
-          </Pressable>
+          <View style={styles.headerRight}>
+            {draftHistory.length > 0 && (
+              <Pressable
+                onPress={() => setShowDraftHistoryModal(true)}
+                style={styles.historyButton}
+              >
+                <IconSymbol name="clock.arrow.circlepath" size={24} color={colors.text} />
+                {/* バッジ */}
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{draftHistory.length}</Text>
+                </View>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={handleSkipToForm}
+              style={styles.appBarButton}
+            >
+              <Text style={[styles.skipText, { color: colors.text }]}>スキップ</Text>
+            </Pressable>
+          </View>
         }
       />
 
@@ -1317,6 +1455,167 @@ export default function ComposeScreen() {
         </View>
       </Modal>
 
+      {/* 下書き履歴ボトムシート */}
+      <Modal
+        visible={showDraftHistoryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDraftHistoryModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDraftHistoryModal(false)}
+        >
+          <Pressable style={[styles.bottomSheet, { backgroundColor: colors.background }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.handle} />
+            
+            <Text style={[styles.modalTitle, { color: colors.text }]}>未保存の下書き</Text>
+            
+            <ScrollView style={styles.draftList}>
+              {draftHistory.map((draft) => (
+                <View key={draft.id} style={[styles.draftItem, { borderBottomColor: colors.border }]}>
+                  <View style={styles.draftInfo}>
+                    <Text style={[styles.draftTitle, { color: colors.text }]}>
+                      📝 {draft.title.length > 15 ? `${draft.title.substring(0, 15)}...` : draft.title}
+                    </Text>
+                    <Text style={[styles.draftTime, { color: colors.secondaryText }]}>
+                      🕐 {getRelativeTime(draft.createdAt)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.draftActions}>
+                    <Pressable
+                      style={[styles.actionButton, styles.primaryButton]}
+                      onPress={() => {
+                        setShowDraftHistoryModal(false);
+                        setMessages(draft.messages);
+                        setHasStarted(true);
+                        // 履歴は削除しない（保存後に削除される）
+                      }}
+                    >
+                      <Text style={styles.primaryButtonText}>{'会\n話'}</Text>
+                    </Pressable>
+                    
+                    <Pressable
+                      style={[styles.actionButton, styles.primaryButton]}
+                      onPress={() => {
+                        setShowDraftHistoryModal(false);
+                        const navUrl = JSON.parse(draft.navigationUrl);
+                        router.push(navUrl as any);
+                      }}
+                    >
+                      <Text style={styles.primaryButtonText}>{'編\n集'}</Text>
+                    </Pressable>
+                    
+                    <Pressable
+                      style={[styles.actionButton, styles.dangerButton]}
+                      onPress={() => handleDeleteDraft(draft.id)}
+                    >
+                      <Text style={styles.dangerButtonText}>{'削\n除'}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* フィードバック詳細モーダル */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFeedbackModal(false)}
+      >
+        <Pressable
+          style={styles.feedbackModalOverlay}
+          onPress={() => setShowFeedbackModal(false)}
+        >
+          <Pressable
+            style={[styles.feedbackModalContent, { backgroundColor: colors.background }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* ヘッダー */}
+            <View style={styles.feedbackModalHeader}>
+              <Text style={[styles.feedbackModalTitle, { color: colors.text }]}>
+                {pendingFeedback?.type === 'like' ? '👍 良かった理由' : '👎 改善点'}
+              </Text>
+              <Pressable
+                onPress={() => setShowFeedbackModal(false)}
+                style={styles.feedbackModalClose}
+              >
+                <IconSymbol name="xmark" size={20} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {/* 理由選択 */}
+            <Text style={[styles.feedbackLabel, { color: colors.mutedForeground }]}>
+              理由を選択してください（複数可）
+            </Text>
+            <View style={styles.feedbackReasons}>
+              {pendingFeedback && FEEDBACK_REASONS[pendingFeedback.type].map((reason) => {
+                const isSelected = selectedReasons.includes(reason);
+                return (
+                  <Pressable
+                    key={reason}
+                    onPress={() => toggleReason(reason)}
+                    style={[
+                      styles.feedbackReasonChip,
+                      {
+                        backgroundColor: isSelected ? colors.primary : colors.surface,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.feedbackReasonText,
+                        { color: isSelected ? colors.primaryForeground : colors.text },
+                      ]}
+                    >
+                      {reason}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* コメント入力 */}
+            <Text style={[styles.feedbackLabel, { color: colors.mutedForeground }]}>
+              コメント（任意）
+            </Text>
+            <TextInput
+              style={[
+                styles.feedbackCommentInput,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={feedbackComment}
+              onChangeText={setFeedbackComment}
+              placeholder="詳しい意見があればお聞かせください..."
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            {/* 送信ボタン */}
+            <Pressable
+              style={[styles.feedbackSubmitButton, { backgroundColor: colors.primary }]}
+              onPress={handleSubmitFeedback}
+            >
+              <Text style={[styles.feedbackSubmitText, { color: colors.primaryForeground }]}>
+                送信する
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* レシピ生成中のフルスクリーンオーバーレイ */}
       <LoadingOverlay
         visible={isGeneratingDraft}
@@ -1348,6 +1647,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyButton: {
+    position: 'relative',
+    minWidth: 44,
+    height: 44,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   skipText: {
     fontSize: 14,
@@ -1505,6 +1834,77 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
+  bottomSheet: {
+    maxHeight: '70%',
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingBottom: Spacing.xl,
+  },
+  handle: {
+    width: 36,
+    height: 5,
+    backgroundColor: '#C4C4C4',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  draftList: {
+    flex: 1,
+  },
+  draftItem: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    gap: Spacing.md,
+  },
+  draftInfo: {
+    gap: Spacing.xs,
+  },
+  draftTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  draftTime: {
+    fontSize: 13,
+  },
+  draftActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    backgroundColor: '#007AFF',
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  dangerButton: {
+    backgroundColor: '#FF3B30',
+  },
+  dangerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
   actionSheet: {
     margin: Spacing.sm,
     borderRadius: BorderRadius.xl,
@@ -1590,5 +1990,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: Spacing.md,
+  },
+  // フィードバック詳細モーダル
+  feedbackModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  feedbackModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  feedbackModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  feedbackModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  feedbackModalClose: {
+    padding: Spacing.xs,
+  },
+  feedbackLabel: {
+    fontSize: 13,
+    marginBottom: Spacing.sm,
+  },
+  feedbackReasons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  feedbackReasonChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  feedbackReasonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  feedbackCommentInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    minHeight: 80,
+    fontSize: 14,
+    marginBottom: Spacing.md,
+  },
+  feedbackSubmitButton: {
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+  },
+  feedbackSubmitText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

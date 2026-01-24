@@ -483,6 +483,7 @@ export default function HomeScreen() {
           onToggleTag={toggleTag}
           onClearFilters={clearFilters}
           tags={tagList.length > 0 ? tagList : undefined}
+          initialTagCount={0}
         />
 
         {/* 今週のおすすめ */}

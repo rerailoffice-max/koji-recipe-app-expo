@@ -61,15 +61,13 @@ const styles = StyleSheet.create({
     rowGap: Spacing.xs,
   },
   chip: {
-    height: 36,
     paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 2,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    maxWidth: '100%',
-    flexShrink: 1,
   },
   chipText: {
     fontSize: 14,

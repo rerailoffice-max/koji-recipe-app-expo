@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -86,6 +87,10 @@ export default function MyRecipesScreen() {
   const [savedRecipes, setSavedRecipes] = React.useState<RecipeItem[]>([]);
   const [myRecipes, setMyRecipes] = React.useState<RecipeItem[]>([]);
   const [draftRecipes, setDraftRecipes] = React.useState<RecipeItem[]>([]);
+
+  // ご意見ボックス
+  const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
+  const [feedbackText, setFeedbackText] = React.useState('');
 
   // ユーザー情報を取得
   React.useEffect(() => {
@@ -254,6 +259,29 @@ export default function MyRecipesScreen() {
     router.push(`/posts/${id}` as any);
   };
 
+  // ご意見送信（Supabaseに保存）
+  const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim()) {
+      showToast({ message: 'ご意見を入力してください', type: 'error' });
+      return;
+    }
+
+    try {
+      await supabase.from('feedbacks').insert({
+        user_id: user?.id || null,
+        email: user?.email || null,
+        content: feedbackText.trim(),
+      });
+      
+      setShowFeedbackModal(false);
+      setFeedbackText('');
+      showToast({ message: 'ご意見ありがとうございます！', type: 'success' });
+    } catch (e) {
+      console.error('Feedback error:', e);
+      showToast({ message: '送信に失敗しました', type: 'error' });
+    }
+  };
+
   // 検索フィルタリング（表記ゆれ対応）
   const filterBySearch = React.useCallback((recipes: RecipeItem[]) => {
     const q = normalizeText(searchQuery.trim());
@@ -301,6 +329,13 @@ export default function MyRecipesScreen() {
 
           {/* 右アイコン（ログアウト時も表示） */}
           <View style={styles.headerRight}>
+            {/* ご意見ボックス */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => setShowFeedbackModal(true)}
+            >
+              <IconSymbol name="text.bubble" size={22} color={colors.text} />
+            </Pressable>
             {/* 麹を購入 */}
             <Pressable
               style={styles.headerIcon}
@@ -366,6 +401,69 @@ export default function MyRecipesScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* ご意見ボックスモーダル（ログアウト時） */}
+        <Modal
+          visible={showFeedbackModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowFeedbackModal(false)}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setShowFeedbackModal(false)}
+          >
+            <Pressable
+              style={[styles.feedbackModal, { backgroundColor: colors.background }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={[styles.feedbackTitle, { color: colors.text }]}>
+                ご意見・ご要望
+              </Text>
+              <Text style={[styles.feedbackDescription, { color: colors.mutedForeground }]}>
+                アプリやAIメニューについてのご意見をお聞かせください
+              </Text>
+              <TextInput
+                style={[
+                  styles.feedbackInput,
+                  { 
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  }
+                ]}
+                value={feedbackText}
+                onChangeText={setFeedbackText}
+                placeholder="ご意見を入力..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+              />
+              <View style={styles.feedbackButtons}>
+                <Pressable
+                  style={[styles.feedbackButton, { backgroundColor: colors.muted }]}
+                  onPress={() => {
+                    setShowFeedbackModal(false);
+                    setFeedbackText('');
+                  }}
+                >
+                  <Text style={[styles.feedbackButtonText, { color: colors.mutedForeground }]}>
+                    キャンセル
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.feedbackButton, { backgroundColor: colors.primary }]}
+                  onPress={handleSubmitFeedback}
+                >
+                  <Text style={[styles.feedbackButtonText, { color: colors.primaryForeground }]}>
+                    送信
+                  </Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     );
   }
@@ -400,6 +498,13 @@ export default function MyRecipesScreen() {
 
           {/* 右アイコン */}
           <View style={styles.headerRight}>
+            {/* ご意見ボックス */}
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => setShowFeedbackModal(true)}
+            >
+              <IconSymbol name="text.bubble" size={22} color={colors.text} />
+            </Pressable>
             {/* 麹を購入 */}
             <Pressable
               style={styles.headerIcon}
@@ -544,6 +649,69 @@ export default function MyRecipesScreen() {
           )}
         </>
       </ScrollView>
+
+      {/* ご意見ボックスモーダル（ログイン時） */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFeedbackModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowFeedbackModal(false)}
+        >
+          <Pressable
+            style={[styles.feedbackModal, { backgroundColor: colors.background }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.feedbackTitle, { color: colors.text }]}>
+              ご意見・ご要望
+            </Text>
+            <Text style={[styles.feedbackDescription, { color: colors.mutedForeground }]}>
+              アプリやAIメニューについてのご意見をお聞かせください
+            </Text>
+            <TextInput
+              style={[
+                styles.feedbackInput,
+                { 
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                }
+              ]}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+              placeholder="ご意見を入力..."
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              numberOfLines={5}
+              textAlignVertical="top"
+            />
+            <View style={styles.feedbackButtons}>
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: colors.muted }]}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackText('');
+                }}
+              >
+                <Text style={[styles.feedbackButtonText, { color: colors.mutedForeground }]}>
+                  キャンセル
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: colors.primary }]}
+                onPress={handleSubmitFeedback}
+              >
+                <Text style={[styles.feedbackButtonText, { color: colors.primaryForeground }]}>
+                  送信
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -715,5 +883,51 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  // ご意見ボックスモーダル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  feedbackModal: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    ...Shadows.lg,
+  },
+  feedbackTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+  },
+  feedbackDescription: {
+    fontSize: 13,
+    marginBottom: Spacing.md,
+  },
+  feedbackInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    minHeight: 120,
+    fontSize: 14,
+    marginBottom: Spacing.md,
+  },
+  feedbackButtons: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  feedbackButton: {
+    flex: 1,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+  },
+  feedbackButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -101,6 +101,23 @@ const MAPPING: Record<string, MaterialIconName> = {
   // ログイン・ログアウト
   'rectangle.portrait.and.arrow.right': 'logout',
   'rectangle.portrait.and.arrow.forward': 'logout',
+  
+  // 時計・履歴
+  'clock.arrow.circlepath': 'history',
+  'clock': 'schedule',
+  'clock.fill': 'schedule',
+  
+  // フィードバック
+  'hand.thumbsup': 'thumb-up-off-alt',
+  'hand.thumbsup.fill': 'thumb-up',
+  'hand.thumbsdown': 'thumb-down-off-alt',
+  'hand.thumbsdown.fill': 'thumb-down',
+  
+  // フィードバック・意見
+  'bubble.left.and.bubble.right': 'forum',
+  'envelope.badge': 'mark-email-unread',
+  'text.bubble': 'comment',
+  'text.bubble.fill': 'comment',
 };
 
 export type IconSymbolName = keyof typeof MAPPING | string;

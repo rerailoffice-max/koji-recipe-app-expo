@@ -31,7 +31,7 @@ export function ComposerBar({
   pendingAttachment,
   onRemoveAttachment,
   disabled,
-  placeholder = 'レシピや食材で検索',
+  placeholder = '冷蔵庫の食材やレシピで検索',
 }: ComposerBarProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];

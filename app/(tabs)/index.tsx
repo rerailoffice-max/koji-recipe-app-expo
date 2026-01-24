@@ -120,53 +120,64 @@ export default function HomeScreen() {
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
   const [tagList, setTagList] = React.useState<TagItem[]>([]);
   
-  // ユーザーと保存済みIDを取得
+  // ページネーション用
+  const PAGE_SIZE = 30;
+  const [page, setPage] = React.useState(0);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  
+  // 初期データを並列で取得（高速化）
   React.useEffect(() => {
-    const loadUserAndSaved = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+    const loadInitialData = async () => {
+      // ユーザー情報とタグを並列で取得
+      const [userResult, tagsResult] = await Promise.all([
+        supabase.auth.getUser(),
+        fetch(`${API_BASE_URL}/api/tags`).then(r => r.ok ? r.json() : null).catch(() => null),
+      ]);
+      
+      // ユーザー情報を設定
+      const user = userResult.data?.user;
+      if (user) {
+        setCurrentUserId(user.id);
+        // 保存済みIDを取得
+        const { data: likes } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        if (likes) {
+          setSavedIds(new Set(likes.map((l) => l.post_id)));
+        }
+      } else {
         setCurrentUserId(null);
         setSavedIds(new Set());
-        return;
       }
-      setCurrentUserId(user.id);
       
-      // 保存済みの投稿IDを取得
-      const { data: likes } = await supabase
-        .from('likes')
-        .select('post_id')
-        .eq('user_id', user.id);
-      
-      if (likes) {
-        setSavedIds(new Set(likes.map((l) => l.post_id)));
+      // タグを設定
+      if (tagsResult?.tags && Array.isArray(tagsResult.tags)) {
+        setTagList(tagsResult.tags);
       }
     };
     
-    loadUserAndSaved();
+    loadInitialData();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadUserAndSaved();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
+      const user = session?.user;
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: likes } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        if (likes) {
+          setSavedIds(new Set(likes.map((l) => l.post_id)));
+        }
+      } else {
+        setCurrentUserId(null);
+        setSavedIds(new Set());
+      }
     });
     
     return () => subscription.unsubscribe();
-  }, []);
-
-  // タグリストを取得
-  React.useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/tags`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.tags && Array.isArray(data.tags)) {
-            setTagList(data.tags);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch tags:', error);
-      }
-    };
-    fetchTags();
   }, []);
 
   // 麹フィルタートグル
@@ -222,13 +233,20 @@ export default function HomeScreen() {
     });
   }, [posts, query, selectedKojis, selectedTags]);
 
-  // 投稿を取得（Supabaseから直接）
-  const fetchPosts = React.useCallback(async (refresh = false) => {
-    if (refresh) setIsRefreshing(true);
-    else setIsLoading(true);
+  // 投稿を取得（Supabaseから直接・ページネーション対応）
+  const fetchPosts = React.useCallback(async (refresh = false, pageNum = 0) => {
+    if (refresh) {
+      setIsRefreshing(true);
+      setPage(0);
+      setHasMore(true);
+    } else if (pageNum === 0) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
 
     try {
-      // Supabaseから直接投稿を取得（同じプロジェクトを使用）
+      // Supabaseから直接投稿を取得
       let query = supabase
         .from('posts')
         .select(`
@@ -256,7 +274,11 @@ export default function HomeScreen() {
         query = query.order('created_at', { ascending: false });
       }
       
-      // 全ての公開投稿を取得（制限なし）
+      // ページネーション（30件ずつ）
+      const from = pageNum * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+      
       const { data, error } = await query;
       
       if (error) {
@@ -267,15 +289,33 @@ export default function HomeScreen() {
           ...post,
           user: Array.isArray(post.user) ? post.user[0] : post.user,
         }));
-        setPosts(formattedPosts);
+        
+        if (refresh || pageNum === 0) {
+          setPosts(formattedPosts);
+        } else {
+          // 追加読み込み
+          setPosts(prev => [...prev, ...formattedPosts]);
+        }
+        
+        // もっと読み込めるかどうか
+        setHasMore(data.length === PAGE_SIZE);
+        setPage(pageNum);
       }
     } catch (e) {
       console.error('Fetch posts error:', e);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+      setIsLoadingMore(false);
     }
   }, [activeTab]);
+
+  // 追加読み込み
+  const loadMore = React.useCallback(() => {
+    if (!isLoadingMore && hasMore && !isLoading) {
+      fetchPosts(false, page + 1);
+    }
+  }, [isLoadingMore, hasMore, isLoading, page, fetchPosts]);
 
   // 週間おすすめを取得（Supabaseから直接）
   const fetchWeeklyRecipes = React.useCallback(async () => {
@@ -506,19 +546,6 @@ export default function HomeScreen() {
         titleComponent={
           Platform.OS === 'web' ? (
             <img
-              ref={(el) => {
-                // #region agent log
-                if (el) {
-                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:454',message:'Logo image natural size',data:{naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:455',message:'Logo image rendered size',data:{clientWidth:el.clientWidth,clientHeight:el.clientHeight,offsetWidth:el.offsetWidth,offsetHeight:el.offsetHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B,E'})}).catch(()=>{});
-                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:456',message:'Logo image computed style',data:{computedWidth:window.getComputedStyle(el).width,computedHeight:window.getComputedStyle(el).height,computedMaxWidth:window.getComputedStyle(el).maxWidth},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,E'})}).catch(()=>{});
-                  if (el.parentElement) {
-                    fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:457',message:'Logo parent container size',data:{parentWidth:el.parentElement.clientWidth,parentHeight:el.parentElement.clientHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
-                  }
-                  fetch('http://127.0.0.1:7246/ingest/e2971e0f-c017-418c-8c61-59d0d72fe3aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:458',message:'Window viewport size',data:{windowWidth:window.innerWidth,windowHeight:window.innerHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
-                }
-                // #endregion
-              }}
               src="/logo-gochisokoji.png"
               alt="GOCHISOKOJI専用レシピサイト"
               style={{ height: 'auto', width: 'auto', maxWidth: 'min(360px, 90vw)' }}
@@ -539,6 +566,15 @@ export default function HomeScreen() {
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={!isLoading ? renderEmpty : null}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <Text style={[styles.loadingMoreText, { color: colors.mutedForeground }]}>
+                読み込み中...
+              </Text>
+            </View>
+          ) : null
+        }
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + 80 },
@@ -551,10 +587,13 @@ export default function HomeScreen() {
             tintColor={colors.primary}
           />
         }
+        // 無限スクロール
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
         // パフォーマンス最適化
-        initialNumToRender={5}
-        maxToRenderPerBatch={5}
-        windowSize={7}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={10}
         removeClippedSubviews={Platform.OS !== 'web'}
         updateCellsBatchingPeriod={50}
       />
@@ -587,5 +626,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 2,
     color: '#000',
+  },
+  loadingMore: {
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    fontSize: 13,
   },
 });

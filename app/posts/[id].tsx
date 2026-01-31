@@ -233,12 +233,14 @@ export default function PostDetailScreen() {
         showToast({ message: '投稿を削除しました', type: 'success' });
         
         setTimeout(() => {
-          if (Platform.OS === 'web') {
-            // Web環境ではページ全体をリロードしてホームへ
-            window.location.href = '/';
-          } else {
-            // ネイティブ環境ではホーム画面に遷移（useFocusEffectで自動再取得）
-            router.replace('/(tabs)/');
+          // ホーム画面に遷移
+          router.replace('/(tabs)/');
+          
+          // Web環境では追加でページをリロードして最新データを確実に取得
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
           }
         }, 1000);
       } catch (e: any) {

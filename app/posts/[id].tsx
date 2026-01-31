@@ -233,16 +233,7 @@ export default function PostDetailScreen() {
         showToast({ message: '投稿を削除しました', type: 'success' });
         
         setTimeout(() => {
-          if (Platform.OS === 'web') {
-            // Web環境では履歴を使って戻る、履歴がなければプロフィールへ
-            if (window.history.length > 1) {
-              window.history.back();
-            } else {
-              router.replace('/(tabs)/profile');
-            }
-          } else {
-            router.back();
-          }
+          router.replace('/(tabs)/');
         }, 1000);
       } catch (e: any) {
         console.error('Delete error:', e);

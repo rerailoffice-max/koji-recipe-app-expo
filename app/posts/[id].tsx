@@ -233,7 +233,13 @@ export default function PostDetailScreen() {
         showToast({ message: '投稿を削除しました', type: 'success' });
         
         setTimeout(() => {
-          router.replace('/(tabs)/');
+          if (Platform.OS === 'web') {
+            // Web環境ではページ全体をリロードしてホームへ
+            window.location.href = '/';
+          } else {
+            // ネイティブ環境ではホーム画面に遷移（useFocusEffectで自動再取得）
+            router.replace('/(tabs)/');
+          }
         }, 1000);
       } catch (e: any) {
         console.error('Delete error:', e);

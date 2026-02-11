@@ -34,6 +34,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# 引き継ぎ用（機密情報含む、Gitにコミットしない）
+docs/handoff-accounts.md
+
 # typescript
 *.tsbuildinfo
 

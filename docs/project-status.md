@@ -1,6 +1,6 @@
 # GOCHISOKOJI プロジェクト状況
 
-**最終更新**: 2026年1月24日
+**最終更新**: 2026年2月10日
 
 ---
 
@@ -38,6 +38,7 @@
 - [x] 検索タグの折りたたみ機能
 
 ### AI・データ機能
+- [x] Geminiモデルをgemini-2.5-flashに切り替え（安定性向上）
 - [x] 栄養情報AI出力（調理時間のみ表示、カロリー・塩分は削除）
 - [x] タグ検索機能強化（DBから動的取得、カテゴリ別表示）
 - [x] AIメニュー提案へのフィードバック機能（いいね/バッド + 理由選択 + コメント）
@@ -89,7 +90,7 @@
 
 ### バックエンド
 - **フレームワーク**: Next.js (App Router)
-- **AI**: Google Gemini API (`gemini-3-flash-preview`)
+- **AI**: Google Gemini API (`gemini-2.5-flash`)
 - **データベース**: Supabase (PostgreSQL)
 - **認証**: Supabase Auth
 - **ストレージ**: Supabase Storage

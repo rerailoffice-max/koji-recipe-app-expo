@@ -41,7 +41,6 @@ interface Post {
     id: string;
     display_name: string | null;
     avatar_url: string | null;
-    email: string | null;
   } | null;
 }
 
@@ -245,7 +244,7 @@ export default function HomeScreen() {
           calories,
           cooking_time_min,
           tags,
-          user:users(id, display_name, avatar_url, email)
+          user:users(id, display_name, avatar_url)
         `)
         .eq('is_public', true);
       
@@ -440,7 +439,7 @@ export default function HomeScreen() {
         image={item.image_url}
         title={item.title}
         description={item.description}
-        authorName={item.user?.display_name || item.user?.email?.split('@')[0] || null}
+        authorName={item.user?.display_name || 'ユーザー'}
         authorAvatarUrl={item.user?.avatar_url || null}
         kojiType={item.koji_type}
         ingredients={item.ingredients}
